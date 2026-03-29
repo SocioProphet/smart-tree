@@ -108,12 +108,22 @@ pub enum DaemonStatus {
 }
 
 impl DaemonClient {
-    /// Create a new daemon client
+    /// Create a new daemon client, loading auth token from ~/.st/daemon.token
     pub fn new(port: u16) -> Self {
-        let client = reqwest::Client::builder()
-            .timeout(Duration::from_secs(5))
-            .build()
-            .unwrap_or_default();
+        let token = crate::daemon::load_token();
+
+        let mut builder = reqwest::Client::builder()
+            .timeout(Duration::from_secs(5));
+
+        if let Some(ref tok) = token {
+            let mut headers = reqwest::header::HeaderMap::new();
+            if let Ok(val) = reqwest::header::HeaderValue::from_str(&format!("Bearer {}", tok)) {
+                headers.insert(reqwest::header::AUTHORIZATION, val);
+            }
+            builder = builder.default_headers(headers);
+        }
+
+        let client = builder.build().unwrap_or_default();
 
         Self {
             port,
@@ -347,11 +357,19 @@ impl DaemonClient {
     ) -> Result<crate::daemon_cli::CliScanResponse> {
         let url = format!("{}/cli/scan", self.base_url);
 
-        // Use a longer timeout for scan operations
-        let client = reqwest::Client::builder()
-            .timeout(std::time::Duration::from_secs(120))
-            .build()
-            .unwrap_or_default();
+        // Use a longer timeout for scan operations, with auth token
+        let mut builder = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(120));
+
+        if let Some(tok) = crate::daemon::load_token() {
+            let mut headers = reqwest::header::HeaderMap::new();
+            if let Ok(val) = reqwest::header::HeaderValue::from_str(&format!("Bearer {}", tok)) {
+                headers.insert(reqwest::header::AUTHORIZATION, val);
+            }
+            builder = builder.default_headers(headers);
+        }
+
+        let client = builder.build().unwrap_or_default();
 
         let resp = client
             .post(&url)

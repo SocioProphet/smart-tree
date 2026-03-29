@@ -77,16 +77,18 @@ async fn main() -> Result<()> {
         }
     }
 
-    // Auto-start daemon in background for any command that might need it.
+    // Auto-start daemon for any command that might need it.
     // Skip for modes that run their own servers or are purely informational.
     let skip_autostart = cli.mcp || cli.http_daemon || cli.guardian_daemon
         || cli.version || cli.update || cli.cheet || cli.man
-        || cli.completions.is_some() || cli.daemon_start;
+        || cli.completions.is_some() || cli.daemon_start || cli.daemon_install
+        || matches!(cli.cmd, Some(st::cli::Cmd::Service(_)));
     if !skip_autostart {
         let client = DaemonClient::default_port();
-        tokio::spawn(async move {
-            let _ = client.ensure_running().await;
-        });
+        if let Err(e) = client.ensure_running().await {
+            eprintln!("⚠️  Daemon auto-start failed: {}", e);
+            eprintln!("   Try: st --daemon-start");
+        }
     }
 
     // Handle tips flag if provided
@@ -321,6 +323,9 @@ async fn main() -> Result<()> {
     }
     if cli.daemon_credits {
         return handle_daemon_credits(cli.scan_opts.sse_port).await;
+    }
+    if cli.daemon_install {
+        return service_manager::daemon_install_system().map_err(Into::into);
     }
 
     // Handle mega sessions
@@ -796,6 +801,9 @@ async fn run_web_dashboard(
 async fn run_daemon(port: u16) -> Result<()> {
     use st::daemon::{start_daemon, DaemonConfig};
 
+    // Load user config for daemon settings
+    let st_config = st::config::StConfig::load().unwrap_or_default();
+
     // Start with current directory as sensible default (not entire HOME!)
     // Additional paths can be registered via /context/watch endpoint
     let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
@@ -805,6 +813,7 @@ async fn run_daemon(port: u16) -> Result<()> {
         watch_paths: vec![cwd], // Just current dir, not entire HOME
         orchestrator_url: Some("wss://gpu.foken.ai/api/credits".to_string()),
         enable_credits: true,
+        allow_external: st_config.daemon.allow_external,
     };
 
     start_daemon(config).await

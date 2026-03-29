@@ -74,7 +74,7 @@ pub struct Cli {
     pub allow: Vec<String>,
 
     /// Start HTTP daemon (MCP over HTTP, LLM proxy, The Custodian)
-    #[arg(long, exclusive = true, help_heading = "Interactive Modes")]
+    #[arg(long, alias = "daemon", help_heading = "Interactive Modes")]
     pub http_daemon: bool,
 
     // =========================================================================
@@ -126,6 +126,10 @@ pub struct Cli {
     /// Show Foken credits from daemon
     #[arg(long, exclusive = true, help_heading = "Daemon Control")]
     pub daemon_credits: bool,
+
+    /// [DEPRECATED: use `st service install`] Install daemon as a system service
+    #[arg(long, exclusive = true, help_heading = "Daemon Control", hide = true)]
+    pub daemon_install: bool,
 
     // =========================================================================
     // CONSCIOUSNESS & MEMORY
@@ -402,8 +406,8 @@ pub struct ScanArgs {
     #[arg(long, help_heading = "Streaming")]
     pub sse_server: bool,
 
-    /// SSE server port
-    #[arg(long, default_value = "8420", help_heading = "Streaming")]
+    /// SSE server port (also used as daemon port)
+    #[arg(long, alias = "daemon-port", default_value = "8420", help_heading = "Streaming")]
     pub sse_port: u16,
 
     // =========================================================================
