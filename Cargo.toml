@@ -67,6 +67,9 @@ base64 = "0.22"
 sha2 = "0.10"
 crc32fast = "1.4"
 
+# Secure token storage for proxy OAuth (macOS Keychain / Secret Service / Windows Credential Manager)
+keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"] }
+
 # Terminal output
 colored = "2.1"
 termimad = "0.26"

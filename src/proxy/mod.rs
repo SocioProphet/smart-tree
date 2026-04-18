@@ -19,8 +19,11 @@ pub mod memory;
 pub mod ollama;
 pub mod openai;
 pub mod openai_compat;
+pub mod oauth;
 pub mod openrouter;
 pub mod server;
+pub mod token_store;
+pub mod zai;
 
 /// 🤖 Common interface for all LLM providers
 #[async_trait]
@@ -155,6 +158,11 @@ impl Default for LlmProxy {
         // Add OpenRouter provider if OPENROUTER_API_KEY is present (access to 100+ models!)
         if std::env::var("OPENROUTER_API_KEY").is_ok() {
             proxy.add_provider(Box::new(openrouter::OpenRouterProvider::default()));
+        }
+
+        // Add Z.AI (Zhipu / GLM) provider
+        if std::env::var("ZAI_API_KEY").is_ok() || std::env::var("ZHIPU_API_KEY").is_ok() {
+            proxy.add_provider(Box::new(zai::ZaiProvider::default()));
         }
 
         // Always add Candle provider (it will check for feature at runtime/compile time)

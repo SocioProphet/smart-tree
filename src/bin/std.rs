@@ -818,6 +818,7 @@ async fn start_unified_daemon(socket_config: DaemonConfig) -> Result<()> {
         watch_paths: vec![std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."))],
         orchestrator_url: None, // Foken credits disabled for now
         enable_credits: false,
+        allow_external: false,
     };
 
     tokio::spawn(async move {
