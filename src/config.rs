@@ -81,7 +81,7 @@ pub struct DaemonConfig {
 impl Default for DaemonConfig {
     fn default() -> Self {
         Self {
-            port: 8420,
+            port: 28428,
             auto_start: false,
             allow_external: false,
         }

@@ -838,7 +838,7 @@ run_client_menu() {
         5)
             print_header "Starting HTTP Daemon ${ROCKET}"
             print_info "Services: MCP over HTTP, LLM Proxy, The Custodian"
-            print_info "Port: 8420"
+            print_info "Port: 28428"
             sleep 1
             cd "$PROJECT_DIR"
             ./target/release/$BINARY_NAME --http-daemon

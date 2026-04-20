@@ -138,7 +138,7 @@ st --newer-than 2025-01-01 --sort newest --top 20
 st -m summary-ai ~/projects/big-codebase > context.txt
 
 # The "Live Monitor" Jam Session
-st --sse-server --sse-port 8420 /path/to/watch
+st --sse-server --sse-port 28428 /path/to/watch
 ```
 
 ## 🔮 8-O Mode Preview (Coming Soon!)

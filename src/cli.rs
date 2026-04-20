@@ -407,7 +407,7 @@ pub struct ScanArgs {
     pub sse_server: bool,
 
     /// SSE server port (also used as daemon port)
-    #[arg(long, alias = "daemon-port", default_value = "8420", help_heading = "Streaming")]
+    #[arg(long, alias = "daemon-port", default_value = "28428", help_heading = "Streaming")]
     pub sse_port: u16,
 
     // =========================================================================

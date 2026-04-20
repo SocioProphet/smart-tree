@@ -177,7 +177,7 @@ async fn auth_middleware(
 /// Daemon configuration
 #[derive(Debug, Clone)]
 pub struct DaemonConfig {
-    /// HTTP port (default: 8420)
+    /// HTTP port (default: 28428)
     pub port: u16,
     /// Directories to watch
     pub watch_paths: Vec<PathBuf>,
@@ -192,7 +192,7 @@ pub struct DaemonConfig {
 impl Default for DaemonConfig {
     fn default() -> Self {
         Self {
-            port: 8420,
+            port: 28428,
             watch_paths: vec![],
             orchestrator_url: Some("wss://gpu.foken.ai/api/credits".to_string()),
             enable_credits: true,
@@ -531,7 +531,7 @@ async fn welcome_page() -> axum::response::Html<&'static str> {
         <h1>Smart Tree Daemon</h1>
         <p style="color:#888">System AI Context Service</p>
         <p style="color:#4ecdc4;margin-top:1rem;">You're viewing the Smart Tree Dashboard</p>
-        <p style="color:#888;font-size:0.85rem;">Bookmark this page: <strong>http://localhost:8420</strong></p>
+        <p style="color:#888;font-size:0.85rem;">Bookmark this page: <strong>http://localhost:28428</strong></p>
     </div>
 
     <div class="grid">

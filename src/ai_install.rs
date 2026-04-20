@@ -383,7 +383,7 @@ impl AiInstaller {
         // Uses SSE transport - daemon must be running: st --http-daemon
         let st_http_config = json!({
             "type": "sse",
-            "url": "http://localhost:8420/mcp",
+            "url": "http://localhost:28428/mcp",
             "_note": "Run 'st --http-daemon' first. The Custodian monitors all operations!"
         });
 
