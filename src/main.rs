@@ -364,12 +364,32 @@ async fn main() -> Result<()> {
     let request = build_cli_request(&cli)?;
 
     // Execute scan via daemon
-    let response = client.cli_scan(request).await.context("Scan failed")?;
+    let response = client.cli_scan(request.clone()).await.context("Scan failed")?;
+
+    // Print Treehouse ASCII banner for interactive non-machine modes
+    if std::io::stdout().is_terminal() && (request.mode == "smart" || request.mode == "classic") {
+        print_treehouse_banner();
+    }
 
     // Print output (already formatted by daemon)
     print!("{}", response.output);
 
     Ok(())
+}
+
+/// Prints a cool cyber-botanical Tree-House ASCII banner
+fn print_treehouse_banner() {
+    let banner = "
+[1;32m      ⋆          ⋆          ⋆[0m
+[1;32m  ⋆       [1;36m/ \\[1;32m         ⋆[0m
+[1;32m       [1;36m/   o \\[1;32m    ⋆[0m
+[1;32m   ⋆  [1;36m/_________\\[1;32m       ⋆[0m
+[1;36m         |   | [0m
+[1;36m         |   | [0m
+[1;32m       _ |_ _|_ _       [0m
+[1;36m   S M A R T  T R E E H O U S E[0m
+";
+    println!("{}", banner);
 }
 
 /// Build a CliScanRequest from CLI arguments
@@ -1704,12 +1724,12 @@ async fn handle_daemon_credits(port: u16) -> Result<()> {
 // MCP INSTALLATION HANDLERS
 // =============================================================================
 
-/// Install Smart Tree as MCP server in Claude Desktop
+/// Install Smart Tree as MCP server in Desktop configs
 async fn handle_mcp_install() -> Result<()> {
-    use st::claude_init::install_mcp_to_claude_desktop;
+    use st::claude_init::install_mcp_to_desktop;
 
-    println!("📦 Installing Smart Tree MCP server to Claude Desktop...");
-    match install_mcp_to_claude_desktop() {
+    println!("📦 Installing Smart Tree MCP server to AI agents...");
+    match install_mcp_to_desktop() {
         Ok(msg) => println!("{}", msg),
         Err(e) => {
             eprintln!("❌ Installation failed: {}", e);
@@ -1721,12 +1741,12 @@ async fn handle_mcp_install() -> Result<()> {
     Ok(())
 }
 
-/// Uninstall Smart Tree MCP server from Claude Desktop
+/// Uninstall Smart Tree MCP server from Desktop configs
 async fn handle_mcp_uninstall() -> Result<()> {
-    use st::claude_init::uninstall_mcp_from_claude_desktop;
+    use st::claude_init::uninstall_mcp_from_desktop;
 
-    println!("🗑️  Uninstalling Smart Tree MCP server from Claude Desktop...");
-    match uninstall_mcp_from_claude_desktop() {
+    println!("🗑️  Uninstalling Smart Tree MCP server from AI agents...");
+    match uninstall_mcp_from_desktop() {
         Ok(msg) => println!("{}", msg),
         Err(e) => {
             eprintln!("❌ Uninstall failed: {}", e);

@@ -280,6 +280,14 @@ pub fn get_consolidated_tools() -> Vec<Value> {
                     "end_date": {
                         "type": "string",
                         "description": "End date YYYY-MM-DD (for timespan type)"
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Maximum number of results to return (for pagination)"
+                    },
+                    "offset": {
+                        "type": "integer",
+                        "description": "Number of results to skip (for pagination)"
                     }
                 },
                 "required": ["type"]
