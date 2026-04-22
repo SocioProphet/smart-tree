@@ -31,7 +31,7 @@ fn percent_encode(s: &str) -> String {
 }
 
 /// Default daemon port (Foken's magic number!)
-pub const DEFAULT_DAEMON_PORT: u16 = 8420;
+pub const DEFAULT_DAEMON_PORT: u16 = 28428;
 
 /// Daemon client configuration
 #[derive(Debug, Clone)]
@@ -132,7 +132,7 @@ impl DaemonClient {
         }
     }
 
-    /// Create with default port (8420)
+    /// Create with default port (28428)
     pub fn default_port() -> Self {
         Self::new(DEFAULT_DAEMON_PORT)
     }
@@ -684,9 +684,9 @@ mod tests {
 
     #[test]
     fn test_client_creation() {
-        let client = DaemonClient::new(8420);
-        assert_eq!(client.port, 8420);
-        assert_eq!(client.base_url, "http://127.0.0.1:8420");
+        let client = DaemonClient::new(28428);
+        assert_eq!(client.port, 28428);
+        assert_eq!(client.base_url, "http://127.0.0.1:28428");
     }
 
     #[test]

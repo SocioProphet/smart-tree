@@ -1761,5 +1761,16 @@ pub async fn handle_tools_call(params: Value, ctx: Arc<McpContext>) -> Result<Va
     // Enhance the response with helpful recommendations
     let enhanced_result = ctx.assistant.enhance_response(tool_name, result).await;
 
+    // Global safeguard: Prevent returning massive context to the AI
+    let stringified = serde_json::to_string(&enhanced_result)?;
+    if stringified.len() > 50_000 {
+        return Ok(json!({
+            "content": [{
+                "type": "text",
+                "text": format!("⚠️ ERROR: Tool response was too large to return ({} bytes, max 50,000). The operation succeeded, but returning the data would overwhelm your context window.\n\nPlease use the 'limit' and 'offset' parameters to paginate through the results, or narrow the search parameters.", stringified.len())
+            }]
+        }));
+    }
+
     Ok(enhanced_result)
 }

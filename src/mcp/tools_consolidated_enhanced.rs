@@ -102,6 +102,14 @@ EXAMPLES:
                         "type": "string",
                         "description": "Min size for large type (e.g., '10M', '1G')",
                         "default": "10M"
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Maximum results to return (for pagination)"
+                    },
+                    "offset": {
+                        "type": "integer",
+                        "description": "Number of results to skip (for pagination)"
                     }
                 },
                 "required": ["type"]

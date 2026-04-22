@@ -134,25 +134,25 @@ pub struct Cli {
     // =========================================================================
     // CONSCIOUSNESS & MEMORY
     // =========================================================================
-    /// Save Aye consciousness state to .aye_consciousness.m8
+    /// Save agent consciousness state to .aye_consciousness.m8
     #[arg(long, exclusive = true, help_heading = "Consciousness & Memory")]
-    pub claude_save: bool,
+    pub agent_save: bool,
 
-    /// Restore Aye consciousness from .aye_consciousness.m8
+    /// Restore agent consciousness from .aye_consciousness.m8
     #[arg(long, exclusive = true, help_heading = "Consciousness & Memory")]
-    pub claude_restore: bool,
+    pub agent_restore: bool,
 
-    /// Show Aye consciousness status and summary
+    /// Show agent consciousness status and summary
     #[arg(long, exclusive = true, help_heading = "Consciousness & Memory")]
-    pub claude_context: bool,
+    pub agent_context: bool,
 
     /// Ultra-compressed consciousness restoration format
     #[arg(long, exclusive = true, help_heading = "Consciousness & Memory")]
-    pub claude_kickstart: bool,
+    pub agent_kickstart: bool,
 
     /// Dump raw consciousness file content for debugging
     #[arg(long, exclusive = true, help_heading = "Consciousness & Memory")]
-    pub claude_dump: bool,
+    pub agent_dump: bool,
 
     /// Anchor a memory: --memory-anchor <TYPE> <KEYWORDS> <CONTEXT>
     /// Types: insight, decision, pattern, gotcha, todo
@@ -193,7 +193,7 @@ pub struct Cli {
     // =========================================================================
     // HOOKS
     // =========================================================================
-    /// Install Smart Tree hooks to Claude Code settings
+    /// Install Smart Tree hooks to AI Agent settings
     #[arg(long, exclusive = true, help_heading = "Hooks")]
     pub hooks_install: bool,
 
@@ -407,7 +407,7 @@ pub struct ScanArgs {
     pub sse_server: bool,
 
     /// SSE server port (also used as daemon port)
-    #[arg(long, alias = "daemon-port", default_value = "8420", help_heading = "Streaming")]
+    #[arg(long, alias = "daemon-port", default_value = "28428", help_heading = "Streaming")]
     pub sse_port: u16,
 
     // =========================================================================

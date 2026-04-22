@@ -412,7 +412,7 @@ run_st_client() {
                 echo -e "  • MCP over HTTP"
                 echo -e "  • LLM Proxy"
                 echo -e "  • The Custodian (AI Guardian)"
-                echo -e "${YELLOW}Port: 8420${NC}\n"
+                echo -e "${YELLOW}Port: 28428${NC}\n"
                 sleep 2
                 if command -v st &> /dev/null; then
                     st --http-daemon

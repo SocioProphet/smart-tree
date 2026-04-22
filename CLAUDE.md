@@ -23,7 +23,7 @@ After rebuilding, if `st --version` hangs, run `hash -r` to clear your shell's b
 
 ## Architecture
 
-**Thin-client + daemon model**: The `st` CLI binary is a thin client that spawns an async daemon (`std`) for heavy lifting and persistent state. The daemon exposes an HTTP API on port **8420** (default).
+**Thin-client + daemon model**: The `st` CLI binary is a thin client that spawns an async daemon (`std`) for heavy lifting and persistent state. The daemon exposes an HTTP API on port **28428** (default).
 
 ### CLI → Daemon Flow
 
@@ -34,7 +34,7 @@ Most `st` commands follow this path:
 
 ### Daemon Communication
 
-- **CLI ↔ Daemon**: HTTP/JSON on port 8420, authenticated via Bearer token stored at `~/.st/daemon.token`
+- **CLI ↔ Daemon**: HTTP/JSON on port 28428, authenticated via Bearer token stored at `~/.st/daemon.token`
 - **Daemon ↔ Daemon**: `st-protocol` binary wire protocol (6502-inspired opcodes) over Unix sockets — this is NOT used for CLI-daemon communication
 - **Auto-spawn**: `DaemonClient::ensure_running()` spawns daemon in background with `setsid` (Unix) or `DETACHED_PROCESS` (Windows), retries with exponential backoff (5 attempts, 100ms→1600ms)
 

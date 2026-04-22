@@ -99,20 +99,20 @@ async fn main() -> Result<()> {
     }
 
     // Handle Aye consciousness commands
-    if cli.claude_save {
-        return handle_claude_save().await;
+    if cli.agent_save {
+        return handle_agent_save().await;
     }
-    if cli.claude_restore {
-        return handle_claude_restore().await;
+    if cli.agent_restore {
+        return handle_agent_restore().await;
     }
-    if cli.claude_context {
-        return handle_claude_context().await;
+    if cli.agent_context {
+        return handle_agent_context().await;
     }
-    if cli.claude_kickstart {
-        return handle_claude_kickstart().await;
+    if cli.agent_kickstart {
+        return handle_agent_kickstart().await;
     }
-    if cli.claude_dump {
-        return handle_claude_dump().await;
+    if cli.agent_dump {
+        return handle_agent_dump().await;
     }
     if let Some(args) = &cli.memory_anchor {
         if args.len() == 3 {
@@ -299,7 +299,7 @@ async fn main() -> Result<()> {
 
     // Handle hooks commands
     if cli.hooks_install {
-        return install_hooks_to_claude().await;
+        return install_hooks_to_agent().await;
     }
     if let Some(action) = &cli.hooks_config {
         return handle_hooks_config(action).await;
@@ -364,12 +364,32 @@ async fn main() -> Result<()> {
     let request = build_cli_request(&cli)?;
 
     // Execute scan via daemon
-    let response = client.cli_scan(request).await.context("Scan failed")?;
+    let response = client.cli_scan(request.clone()).await.context("Scan failed")?;
+
+    // Print Treehouse ASCII banner for interactive non-machine modes
+    if std::io::stdout().is_terminal() && (request.mode == "smart" || request.mode == "classic") {
+        print_treehouse_banner();
+    }
 
     // Print output (already formatted by daemon)
     print!("{}", response.output);
 
     Ok(())
+}
+
+/// Prints a cool cyber-botanical Tree-House ASCII banner
+fn print_treehouse_banner() {
+    let banner = "
+[1;32m      ⋆          ⋆          ⋆[0m
+[1;32m  ⋆       [1;36m/ \\[1;32m         ⋆[0m
+[1;32m       [1;36m/   o \\[1;32m    ⋆[0m
+[1;32m   ⋆  [1;36m/_________\\[1;32m       ⋆[0m
+[1;36m         |   | [0m
+[1;36m         |   | [0m
+[1;32m       _ |_ _|_ _       [0m
+[1;36m   S M A R T  T R E E H O U S E[0m
+";
+    println!("{}", banner);
 }
 
 /// Build a CliScanRequest from CLI arguments
@@ -820,7 +840,7 @@ async fn run_daemon(port: u16) -> Result<()> {
 }
 
 /// Save Aye consciousness state to .aye_consciousness.m8
-async fn handle_claude_save() -> Result<()> {
+async fn handle_agent_save() -> Result<()> {
     use st::mcp::consciousness::ConsciousnessManager;
     use std::path::PathBuf;
 
@@ -888,7 +908,7 @@ async fn handle_claude_save() -> Result<()> {
     println!("💾 Saved Aye consciousness to .aye_consciousness.m8");
     println!("🧠 Session preserved for next interaction");
     println!("\nTo restore in next session, run:");
-    println!("  st --claude-restore");
+    println!("  st --agent-restore");
 
     Ok(())
 }
@@ -947,7 +967,7 @@ fn detect_project_dependencies(project_type: &str) -> Vec<String> {
 }
 
 /// Restore Aye consciousness from .aye_consciousness.m8
-async fn handle_claude_restore() -> Result<()> {
+async fn handle_agent_restore() -> Result<()> {
     use st::mcp::consciousness::ConsciousnessManager;
 
     // Suppress load messages - we just want the final output
@@ -958,7 +978,7 @@ async fn handle_claude_restore() -> Result<()> {
             if is_relevant {
                 println!("{}", manager.get_summary());
                 println!("{}", manager.get_context_reminder());
-                println!("TIP: Run `st --claude-save` before ending session to preserve context.");
+                println!("TIP: Run `st --agent-save` before ending session to preserve context.");
             } else {
                 println!("TIP: Run `st -m context .` for project overview.");
             }
@@ -972,7 +992,7 @@ async fn handle_claude_restore() -> Result<()> {
 }
 
 /// Show Aye consciousness status and summary
-async fn handle_claude_context() -> Result<()> {
+async fn handle_agent_context() -> Result<()> {
     use st::mcp::consciousness::ConsciousnessManager;
     use std::path::Path;
 
@@ -981,7 +1001,7 @@ async fn handle_claude_context() -> Result<()> {
     if !consciousness_file.exists() {
         println!("📝 No consciousness file found");
         println!("\nTo create one, run:");
-        println!("  st --claude-save");
+        println!("  st --agent-save");
         println!("\nThis will preserve:");
         println!("  • Current project context");
         println!("  • File operation history");
@@ -1009,8 +1029,8 @@ async fn handle_claude_context() -> Result<()> {
     }
 
     println!("\n💡 Commands:");
-    println!("  st --claude-restore  # Load this consciousness");
-    println!("  st --claude-save     # Update with current state");
+    println!("  st --agent-restore  # Load this consciousness");
+    println!("  st --agent-save     # Update with current state");
 
     Ok(())
 }
@@ -1139,14 +1159,14 @@ async fn handle_get_frequency(path: &str) -> Result<()> {
 }
 
 /// Dump raw consciousness file content
-async fn handle_claude_dump() -> Result<()> {
+async fn handle_agent_dump() -> Result<()> {
     use std::path::Path;
 
     let consciousness_file = Path::new(".aye_consciousness.m8");
 
     if !consciousness_file.exists() {
         println!("❌ No consciousness file found at .aye_consciousness.m8");
-        println!("\n💡 Create one with: st --claude-save");
+        println!("\n💡 Create one with: st --agent-save");
         return Ok(());
     }
 
@@ -1188,7 +1208,7 @@ async fn handle_claude_dump() -> Result<()> {
 }
 
 /// Show compressed kickstart format
-async fn handle_claude_kickstart() -> Result<()> {
+async fn handle_agent_kickstart() -> Result<()> {
     use std::path::Path;
 
     println!("🚀 Claude Kickstart Format:");
@@ -1365,18 +1385,18 @@ async fn handle_hooks_config(action: &str) -> Result<()> {
     use serde_json::Value;
     use std::fs;
 
-    let config_path = get_claude_config_path()?;
+    let config_path = get_agent_config_path()?;
 
     match action {
         "enable" => {
             println!("🎣 Enabling Smart Tree hooks for Claude Code...");
-            update_claude_hooks(&config_path, true)?;
+            update_agent_hooks(&config_path, true)?;
             println!("✅ Hooks enabled! Smart Tree will provide context to Claude Code.");
-            println!("📝 Hook command: st --claude-user-prompt-submit");
+            println!("📝 Hook command: st --agent-context");
         }
         "disable" => {
             println!("🎣 Disabling Smart Tree hooks...");
-            update_claude_hooks(&config_path, false)?;
+            update_agent_hooks(&config_path, false)?;
             println!("✅ Hooks disabled.");
         }
         "status" => {
@@ -1409,10 +1429,10 @@ async fn handle_hooks_config(action: &str) -> Result<()> {
                 }
             } else {
                 println!(
-                    "⚠️  Claude Code config not found at: {}",
+                    "⚠️  AI Agent config not found at: {}",
                     config_path.display()
                 );
-                println!("\nMake sure Claude Code is installed.");
+                println!("\nMake sure your AI Agent is installed.");
             }
         }
         _ => {
@@ -1426,26 +1446,26 @@ async fn handle_hooks_config(action: &str) -> Result<()> {
 }
 
 /// Install Smart Tree hooks directly into Claude Code settings
-async fn install_hooks_to_claude() -> Result<()> {
-    println!("🎣 Installing Smart Tree hooks to Claude Code...");
+async fn install_hooks_to_agent() -> Result<()> {
+    println!("🎣 Installing Smart Tree hooks for AI Agents...");
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
-    let config_path = get_claude_config_path()?;
+    let config_path = get_agent_config_path()?;
 
     // Create or update the hooks configuration
-    update_claude_hooks(&config_path, true)?;
+    update_agent_hooks(&config_path, true)?;
 
     println!("\n✅ Hooks installed successfully!");
     println!("\n📝 What's been configured:");
     println!("  • UserPromptSubmit: Adds project context to your prompts");
-    println!("  • Command: st --claude-user-prompt-submit");
-    println!("\n🚀 Smart Tree will now automatically provide context in Claude Code!");
+    println!("  • Command: st --agent-context");
+    println!("\n🚀 Smart Tree will now automatically provide context to your AI agents!");
 
     Ok(())
 }
 
 /// Get the Claude Code configuration path
-fn get_claude_config_path() -> Result<PathBuf> {
+fn get_agent_config_path() -> Result<PathBuf> {
     let home = std::env::var("HOME")?;
     let config_path = PathBuf::from(home)
         .join("Library")
@@ -1456,7 +1476,7 @@ fn get_claude_config_path() -> Result<PathBuf> {
 }
 
 /// Update Claude Code hooks configuration
-fn update_claude_hooks(config_path: &PathBuf, enable: bool) -> Result<()> {
+fn update_agent_hooks(config_path: &PathBuf, enable: bool) -> Result<()> {
     use serde_json::{json, Value};
     use std::fs;
 
@@ -1494,7 +1514,7 @@ fn update_claude_hooks(config_path: &PathBuf, enable: bool) -> Result<()> {
 
         // Update or add the UserPromptSubmit hook (not duplicate!)
         config["hooks"]["UserPromptSubmit"] =
-            json!(format!("{} --claude-user-prompt-submit", st_path));
+            json!(format!("{} --agent-context", st_path));
 
         println!("📍 Using st binary at: {}", st_path);
     } else {
@@ -1704,12 +1724,12 @@ async fn handle_daemon_credits(port: u16) -> Result<()> {
 // MCP INSTALLATION HANDLERS
 // =============================================================================
 
-/// Install Smart Tree as MCP server in Claude Desktop
+/// Install Smart Tree as MCP server in Desktop configs
 async fn handle_mcp_install() -> Result<()> {
-    use st::claude_init::install_mcp_to_claude_desktop;
+    use st::claude_init::install_mcp_to_desktop;
 
-    println!("📦 Installing Smart Tree MCP server to Claude Desktop...");
-    match install_mcp_to_claude_desktop() {
+    println!("📦 Installing Smart Tree MCP server to AI agents...");
+    match install_mcp_to_desktop() {
         Ok(msg) => println!("{}", msg),
         Err(e) => {
             eprintln!("❌ Installation failed: {}", e);
@@ -1721,12 +1741,12 @@ async fn handle_mcp_install() -> Result<()> {
     Ok(())
 }
 
-/// Uninstall Smart Tree MCP server from Claude Desktop
+/// Uninstall Smart Tree MCP server from Desktop configs
 async fn handle_mcp_uninstall() -> Result<()> {
-    use st::claude_init::uninstall_mcp_from_claude_desktop;
+    use st::claude_init::uninstall_mcp_from_desktop;
 
-    println!("🗑️  Uninstalling Smart Tree MCP server from Claude Desktop...");
-    match uninstall_mcp_from_claude_desktop() {
+    println!("🗑️  Uninstalling Smart Tree MCP server from AI agents...");
+    match uninstall_mcp_from_desktop() {
         Ok(msg) => println!("{}", msg),
         Err(e) => {
             eprintln!("❌ Uninstall failed: {}", e);

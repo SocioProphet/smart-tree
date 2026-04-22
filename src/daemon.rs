@@ -114,30 +114,39 @@ pub fn load_or_create_token() -> Result<String> {
 }
 
 /// Load existing token (for clients). Returns None if no token file exists.
-/// Checks user token path first, then falls back to the system-level daemon token.
+/// Prioritizes the system-level daemon token.
 pub fn load_token() -> Option<String> {
+    load_all_tokens().into_iter().next()
+}
+
+/// Load all available valid tokens (for servers to accept any valid local token).
+pub fn load_all_tokens() -> Vec<String> {
+    let mut tokens = Vec::new();
+
+    // 1. Check system-level daemon token
+    let system_path = std::path::PathBuf::from("/var/lib/smart-tree/daemon.token");
+    if let Ok(token) = std::fs::read_to_string(&system_path) {
+        let t = token.trim().to_string();
+        if !t.is_empty() {
+            tokens.push(t);
+        }
+    }
+
+    // 2. Add user local token
     let path = token_path();
-    std::fs::read_to_string(&path)
-        .ok()
-        .map(|t| t.trim().to_string())
-        .filter(|t| !t.is_empty())
-        .or_else(|| {
-            // Fall back to system-level daemon token (installed via `st service install`)
-            let system_path = std::path::PathBuf::from("/var/lib/smart-tree/daemon.token");
-            if system_path != path {
-                std::fs::read_to_string(&system_path)
-                    .ok()
-                    .map(|t| t.trim().to_string())
-                    .filter(|t| !t.is_empty())
-            } else {
-                None
-            }
-        })
+    if let Ok(token) = std::fs::read_to_string(&path) {
+        let t = token.trim().to_string();
+        if !t.is_empty() && !tokens.contains(&t) {
+            tokens.push(t);
+        }
+    }
+
+    tokens
 }
 
 /// Auth middleware: validates Bearer token on all routes except /health
 async fn auth_middleware(
-    State(expected_token): State<String>,
+    State(expected_tokens): State<Vec<String>>,
     req: Request,
     next: Next,
 ) -> impl IntoResponse {
@@ -155,7 +164,7 @@ async fn auth_middleware(
     match auth_header {
         Some(header) if header.starts_with("Bearer ") => {
             let provided = &header[7..];
-            if provided == expected_token {
+            if expected_tokens.iter().any(|t| t == provided) {
                 next.run(req).await
             } else {
                 (StatusCode::UNAUTHORIZED, "Invalid token").into_response()
@@ -168,7 +177,7 @@ async fn auth_middleware(
 /// Daemon configuration
 #[derive(Debug, Clone)]
 pub struct DaemonConfig {
-    /// HTTP port (default: 8420)
+    /// HTTP port (default: 28428)
     pub port: u16,
     /// Directories to watch
     pub watch_paths: Vec<PathBuf>,
@@ -183,7 +192,7 @@ pub struct DaemonConfig {
 impl Default for DaemonConfig {
     fn default() -> Self {
         Self {
-            port: 8420,
+            port: 28428,
             watch_paths: vec![],
             orchestrator_url: Some("wss://gpu.foken.ai/api/credits".to_string()),
             enable_credits: true,
@@ -396,8 +405,8 @@ pub async fn start_daemon(config: DaemonConfig) -> Result<()> {
         .route("/watch/hot", get(watch_hot_directories))
         .with_state(state)
         // Bearer token auth on all routes (except /health, handled inside middleware)
-        .layer(middleware::from_fn_with_state(auth_token.clone(), auth_middleware))
-        // HTTP MCP - Full protocol over HTTP! 🧹 The Custodian watches here
+        .layer(middleware::from_fn_with_state(load_all_tokens(), auth_middleware))
+        // HTTP MCP - Full protocol over HTTP! 🧹 The Custodian watching
         // (uses nest_service to allow different state type)
         .nest_service("/mcp", mcp_router(mcp_context));
 
@@ -522,7 +531,7 @@ async fn welcome_page() -> axum::response::Html<&'static str> {
         <h1>Smart Tree Daemon</h1>
         <p style="color:#888">System AI Context Service</p>
         <p style="color:#4ecdc4;margin-top:1rem;">You're viewing the Smart Tree Dashboard</p>
-        <p style="color:#888;font-size:0.85rem;">Bookmark this page: <strong>http://localhost:8420</strong></p>
+        <p style="color:#888;font-size:0.85rem;">Bookmark this page: <strong>http://localhost:28428</strong></p>
     </div>
 
     <div class="grid">

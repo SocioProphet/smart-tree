@@ -54,7 +54,7 @@ impl Platform {
 // CONSTANTS
 // =============================================================================
 
-const DAEMON_PORT: u16 = 8420;
+const DAEMON_PORT: u16 = 28428;
 
 // Linux
 const SYSTEMD_DAEMON_SERVICE: &str = "smart-tree-daemon.service";
@@ -365,10 +365,10 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-DynamicUser=yes
 ExecStart={binary} --http-daemon
 
 StateDirectory=smart-tree
+StateDirectoryMode=0755
 RuntimeDirectory=smart-tree
 RuntimeDirectoryMode=0755
 

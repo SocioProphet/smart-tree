@@ -298,7 +298,7 @@ st --spicy
 Fire up the web-based dashboard with a real terminal, file browser, and markdown preview:
 
 ```bash
-st --dashboard                    # Start on localhost:8420
+st --dashboard                    # Start on localhost:28428
 st --dashboard --port 9000        # Custom port
 st --dashboard --open             # Auto-open browser
 st --dashboard --allow 192.168.1.0/24  # Allow network access from subnet
@@ -342,7 +342,7 @@ std status                # Check status
 ### For LLMs:
 The daemon exposes endpoints for AI assistants to connect:
 - Unix socket for CLI (binary protocol)
-- HTTP on port 8420 for web/SSE
+- HTTP on port 28428 for web/SSE
 - Memory verbs: REMEMBER, RECALL, FORGET, M8_WAVE
 
 ## 💡 Smart Tips System
