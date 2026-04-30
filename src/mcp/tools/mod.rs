@@ -21,6 +21,7 @@ pub mod directory;
 pub mod feedback;
 pub mod file_history;
 pub mod git;
+pub mod interactive;
 pub mod search;
 pub mod server;
 pub mod smart_read;
@@ -39,6 +40,7 @@ pub use directory::{
 pub use feedback::{check_for_updates, request_tool, submit_feedback};
 pub use file_history::{get_file_history, get_project_history_summary, track_file_operation};
 pub use git::get_git_status;
+
 pub use search::{
     find_build_files, find_code_files, find_config_files, find_documentation, find_duplicates,
     find_empty_directories, find_files, find_in_timespan, find_large_files, find_projects,
@@ -768,6 +770,20 @@ pub async fn handle_tools_list(_params: Option<Value>, _ctx: Arc<McpContext>) ->
                     }
                 },
                 "required": []
+            }),
+        },
+        ToolDefinition {
+            name: "ask_user".to_string(),
+            description: "🗣️ Ask the human user a question and wait for their answer via the Smart Tree web dashboard. Ideal for clarifying requirements, getting explicit permission, or prompting for input without filling the chat log.".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "question": {
+                        "type": "string",
+                        "description": "The question or prompt to ask the user"
+                    }
+                },
+                "required": ["question"]
             }),
         },
         ToolDefinition {
@@ -1649,6 +1665,9 @@ pub async fn handle_tools_call(params: Value, ctx: Arc<McpContext>) -> Result<Va
         "submit_feedback" => submit_feedback(args, ctx_clone.clone()).await,
         "request_tool" => request_tool(args, ctx_clone.clone()).await,
         "check_for_updates" => check_for_updates(args, ctx_clone.clone()).await,
+
+        // Interactive tools
+        "ask_user" => interactive::ask_user(Some(args), ctx_clone.clone()).await,
 
         // SSE tools
         "watch_directory_sse" => watch_directory_sse(args, ctx_clone.clone()).await,

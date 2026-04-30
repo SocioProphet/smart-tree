@@ -646,6 +646,20 @@ pub fn get_consolidated_tools() -> Vec<Value> {
                 "required": ["path"]
             }
         }),
+        json!({
+            "name": "ask_user",
+            "description": "🗣️ Ask the human user a question and wait for their answer via the Smart Tree web dashboard. Ideal for clarifying requirements, getting explicit permission, or prompting for input without filling the chat log.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "question": {
+                        "type": "string",
+                        "description": "The question or prompt to ask the user"
+                    }
+                },
+                "required": ["question"]
+            }
+        }),
     ]
 }
 
@@ -711,6 +725,13 @@ pub async fn dispatch_consolidated_tool(
         "project_context_dump" => {
             super::tools::handle_tools_call(
                 json!({ "name": "project_context_dump", "arguments": params }),
+                ctx,
+            )
+            .await
+        }
+        "ask_user" => {
+            super::tools::handle_tools_call(
+                json!({ "name": "ask_user", "arguments": params }),
                 ctx,
             )
             .await

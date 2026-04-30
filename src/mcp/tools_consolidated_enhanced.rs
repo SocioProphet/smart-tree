@@ -872,6 +872,22 @@ EXAMPLES:
         }
     }));
 
+    // Add ask_user tool (always enabled - interaction functionality)
+    tools.push(json!({
+        "name": "ask_user",
+        "description": "🗣️ Ask the human user a question and wait for their answer via the Smart Tree web dashboard. Ideal for clarifying requirements, getting explicit permission, or prompting for input without filling the chat log.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "question": {
+                    "type": "string",
+                    "description": "The question or prompt to ask the user"
+                }
+            },
+            "required": ["question"]
+        }
+    }));
+
     tools
 }
 
