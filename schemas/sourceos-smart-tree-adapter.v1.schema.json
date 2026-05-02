@@ -1,0 +1,317 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.socioprophet.org/sourceos-smart-tree-adapter.v1.schema.json",
+  "title": "SourceOS Smart Tree Adapter Schemas",
+  "description": "Normalized JSON schemas for Smart Tree integration with Lampstand, Memory Mesh, Sherlock, AgentPlane, Policy Fabric, and code registry consumers.",
+  "type": "object",
+  "oneOf": [
+    { "$ref": "#/$defs/AdapterResponse" },
+    { "$ref": "#/$defs/AdapterError" }
+  ],
+  "$defs": {
+    "AdapterResponse": {
+      "type": "object",
+      "required": ["schema_version", "response_type", "source", "generated_at", "policy_profile", "policy_decision", "provenance", "data"],
+      "properties": {
+        "schema_version": { "const": "sourceos.adapter_response.v1" },
+        "response_type": {
+          "type": "string",
+          "enum": [
+            "RepoContextSnapshot",
+            "SearchResultSet",
+            "SymbolObservationSet",
+            "SecuritySignalSet",
+            "RepoChangeSet",
+            "LampstandRootSet",
+            "LampstandPublishReport"
+          ]
+        },
+        "source": { "const": "smart-tree" },
+        "generated_at": { "type": "string", "format": "date-time" },
+        "policy_profile": { "type": "string" },
+        "policy_decision": { "$ref": "#/$defs/PolicyDecision" },
+        "provenance": { "$ref": "#/$defs/Provenance" },
+        "data": {
+          "oneOf": [
+            { "$ref": "#/$defs/RepoContextSnapshot" },
+            { "$ref": "#/$defs/SearchResultSet" },
+            { "$ref": "#/$defs/SymbolObservationSet" },
+            { "$ref": "#/$defs/SecuritySignalSet" },
+            { "$ref": "#/$defs/RepoChangeSet" },
+            { "$ref": "#/$defs/LampstandPublishReport" }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "AdapterError": {
+      "type": "object",
+      "required": ["schema_version", "error_code", "message", "policy_decision", "provenance", "safe_retry"],
+      "properties": {
+        "schema_version": { "const": "sourceos.adapter_error.v1" },
+        "error_code": {
+          "type": "string",
+          "enum": [
+            "policy_denied",
+            "scan_failed",
+            "tool_unavailable",
+            "invalid_root",
+            "lampstand_unavailable",
+            "publication_denied",
+            "schema_validation_failed"
+          ]
+        },
+        "message": { "type": "string" },
+        "policy_decision": { "$ref": "#/$defs/PolicyDecision" },
+        "provenance": { "$ref": "#/$defs/Provenance" },
+        "safe_retry": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "PolicyDecision": {
+      "type": "object",
+      "required": ["decision", "ruleset", "capabilities"],
+      "properties": {
+        "decision": { "type": "string", "enum": ["allow", "deny", "allow_with_redaction", "review_required"] },
+        "ruleset": { "type": "string" },
+        "capabilities": { "type": "array", "items": { "type": "string" } },
+        "redactions": { "type": "array", "items": { "type": "string" }, "default": [] },
+        "reason": { "type": ["string", "null"] }
+      },
+      "additionalProperties": true
+    },
+    "Provenance": {
+      "type": "object",
+      "required": ["adapter", "tool", "tool_repo", "mode"],
+      "properties": {
+        "adapter": { "type": "string" },
+        "adapter_version": { "type": ["string", "null"] },
+        "tool": { "type": "string" },
+        "tool_version": { "type": ["string", "null"] },
+        "tool_repo": { "type": "string" },
+        "mode": { "type": "string", "enum": ["daemon", "mcp", "cli", "daemon_or_mcp_or_cli"] },
+        "upstream": { "type": ["string", "null"] }
+      },
+      "additionalProperties": true
+    },
+    "RepoContextSnapshot": {
+      "type": "object",
+      "required": ["schema_version", "repo_path_ref", "repo_identity", "lampstand", "summary", "stats", "key_files", "interesting_files", "git", "security_signals", "symbol_summary", "memory_candidates"],
+      "properties": {
+        "schema_version": { "const": "sourceos.repo_context_snapshot.v1" },
+        "repo_path_ref": { "type": "string" },
+        "repo_identity": { "$ref": "#/$defs/RepoIdentity" },
+        "lampstand": { "$ref": "#/$defs/LampstandLink" },
+        "summary": { "$ref": "#/$defs/RepoSummary" },
+        "stats": { "$ref": "#/$defs/RepoStats" },
+        "key_files": { "type": "array", "items": { "$ref": "#/$defs/FileObservation" } },
+        "interesting_files": { "type": "array", "items": { "$ref": "#/$defs/FileObservation" } },
+        "git": { "type": "object" },
+        "security_signals": { "type": "array", "items": { "$ref": "#/$defs/SecuritySignal" } },
+        "symbol_summary": { "type": "object" },
+        "memory_candidates": { "type": "array", "items": { "$ref": "#/$defs/MemoryCandidate" } }
+      },
+      "additionalProperties": false
+    },
+    "RepoIdentity": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string" },
+        "git_remote": { "type": ["string", "null"] },
+        "branch": { "type": ["string", "null"] },
+        "commit": { "type": ["string", "null"] }
+      },
+      "additionalProperties": true
+    },
+    "LampstandLink": {
+      "type": "object",
+      "required": ["local_state_record_ids", "publishable_records"],
+      "properties": {
+        "source_root_id": { "type": ["string", "null"] },
+        "local_state_record_ids": { "type": "array", "items": { "type": "string" } },
+        "freshness": { "type": ["object", "null"] },
+        "publishable_records": { "type": "array", "items": { "$ref": "#/$defs/LampstandSearchRecord" } }
+      },
+      "additionalProperties": true
+    },
+    "RepoSummary": {
+      "type": "object",
+      "required": ["project_type", "languages", "frameworks", "build_systems", "test_systems"],
+      "properties": {
+        "project_type": { "type": "array", "items": { "type": "string" } },
+        "languages": { "type": "array", "items": { "type": "string" } },
+        "frameworks": { "type": "array", "items": { "type": "string" } },
+        "build_systems": { "type": "array", "items": { "type": "string" } },
+        "test_systems": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": true
+    },
+    "RepoStats": {
+      "type": "object",
+      "required": ["total_files", "total_dirs", "total_size_bytes"],
+      "properties": {
+        "total_files": { "type": "integer", "minimum": 0 },
+        "total_dirs": { "type": "integer", "minimum": 0 },
+        "total_size_bytes": { "type": "integer", "minimum": 0 },
+        "scan_time_ms": { "type": ["integer", "null"], "minimum": 0 },
+        "format_time_ms": { "type": ["integer", "null"], "minimum": 0 }
+      },
+      "additionalProperties": true
+    },
+    "FileObservation": {
+      "type": "object",
+      "required": ["path_ref", "object_kind"],
+      "properties": {
+        "path_ref": { "type": "string" },
+        "object_kind": { "type": "string", "enum": ["file", "directory", "symlink", "unknown"] },
+        "category": { "type": ["string", "null"] },
+        "size_bytes": { "type": ["integer", "null"], "minimum": 0 },
+        "mtime": { "type": ["string", "null"], "format": "date-time" },
+        "content_hash": { "type": ["string", "null"] },
+        "metadata_hash": { "type": ["string", "null"] },
+        "is_hidden": { "type": "boolean", "default": false },
+        "is_ignored": { "type": "boolean", "default": false },
+        "interest_score": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "change_status": { "type": ["string", "null"] },
+        "security_signal_ids": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": true
+    },
+    "SearchResultSet": {
+      "type": "object",
+      "required": ["schema_version", "query", "hits"],
+      "properties": {
+        "schema_version": { "const": "sourceos.search_result_set.v1" },
+        "query": { "type": "string" },
+        "hits": { "type": "array", "items": { "$ref": "#/$defs/SearchHit" } }
+      },
+      "additionalProperties": true
+    },
+    "SearchHit": {
+      "type": "object",
+      "required": ["path_ref"],
+      "properties": {
+        "path_ref": { "type": "string" },
+        "line": { "type": ["integer", "null"], "minimum": 1 },
+        "column": { "type": ["integer", "null"], "minimum": 1 },
+        "snippet": { "type": ["string", "null"] },
+        "snippet_redaction_state": { "type": "string", "enum": ["none", "redacted", "withheld"] },
+        "content_hash": { "type": ["string", "null"] },
+        "score": { "type": ["number", "null"] }
+      },
+      "additionalProperties": true
+    },
+    "SymbolObservationSet": {
+      "type": "object",
+      "required": ["schema_version", "symbols"],
+      "properties": {
+        "schema_version": { "const": "sourceos.symbol_observation_set.v1" },
+        "symbols": { "type": "array", "items": { "$ref": "#/$defs/SymbolObservation" } }
+      },
+      "additionalProperties": true
+    },
+    "SymbolObservation": {
+      "type": "object",
+      "required": ["symbol_id", "name", "symbol_kind", "language", "path_ref"],
+      "properties": {
+        "symbol_id": { "type": "string" },
+        "name": { "type": "string" },
+        "symbol_kind": { "type": "string" },
+        "language": { "type": "string" },
+        "path_ref": { "type": "string" },
+        "line_start": { "type": ["integer", "null"], "minimum": 1 },
+        "line_end": { "type": ["integer", "null"], "minimum": 1 },
+        "content_hash": { "type": ["string", "null"] },
+        "visibility": { "type": ["string", "null"] },
+        "semantic_tags": { "type": "array", "items": { "type": "string" } },
+        "dependencies": { "type": "array", "items": { "type": "string" } },
+        "clearance": { "type": "string" },
+        "lampstand_search_record_id": { "type": ["string", "null"] },
+        "memory_candidate_id": { "type": ["string", "null"] }
+      },
+      "additionalProperties": true
+    },
+    "SecuritySignalSet": {
+      "type": "object",
+      "required": ["schema_version", "signals"],
+      "properties": {
+        "schema_version": { "const": "sourceos.security_signal_set.v1" },
+        "signals": { "type": "array", "items": { "$ref": "#/$defs/SecuritySignal" } }
+      },
+      "additionalProperties": true
+    },
+    "SecuritySignal": {
+      "type": "object",
+      "required": ["signal_id", "path_ref", "pattern_name", "risk_level", "description"],
+      "properties": {
+        "signal_id": { "type": "string" },
+        "path_ref": { "type": "string" },
+        "line": { "type": ["integer", "null"], "minimum": 1 },
+        "pattern_name": { "type": "string" },
+        "risk_level": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
+        "description": { "type": "string" },
+        "matched_text_redacted": { "type": ["string", "null"] },
+        "context_kind": { "type": ["string", "null"] },
+        "policy_recommendation": { "type": ["string", "null"] },
+        "lampstand_record_id": { "type": ["string", "null"] },
+        "memory_candidate_id": { "type": ["string", "null"] }
+      },
+      "additionalProperties": true
+    },
+    "MemoryCandidate": {
+      "type": "object",
+      "required": ["candidate_id", "candidate_type", "confidence", "content", "recommended_action"],
+      "properties": {
+        "candidate_id": { "type": "string" },
+        "candidate_type": { "type": "string" },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "content": { "type": "string" },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "source_refs": { "type": "array", "items": { "type": "string" } },
+        "policy_labels": { "type": "array", "items": { "type": "string" } },
+        "recommended_action": { "type": "string", "enum": ["promote", "review", "discard"] }
+      },
+      "additionalProperties": true
+    },
+    "LampstandSearchRecord": {
+      "type": "object",
+      "required": ["record_type", "title", "object_kind", "path_ref", "handling_tags", "source"],
+      "properties": {
+        "record_type": { "type": "string" },
+        "title": { "type": "string" },
+        "object_kind": { "type": "string" },
+        "source_root_id": { "type": ["string", "null"] },
+        "path_ref": { "type": "string" },
+        "content_hash": { "type": ["string", "null"] },
+        "metadata_hash": { "type": ["string", "null"] },
+        "snippet": { "type": ["string", "null"] },
+        "handling_tags": { "type": "array", "items": { "type": "string" } },
+        "freshness": { "type": ["object", "null"] },
+        "policy_decision": { "type": "object" },
+        "source": { "type": "object" }
+      },
+      "additionalProperties": true
+    },
+    "RepoChangeSet": {
+      "type": "object",
+      "required": ["schema_version", "changes"],
+      "properties": {
+        "schema_version": { "const": "sourceos.repo_change_set.v1" },
+        "changes": { "type": "array", "items": { "type": "object" } }
+      },
+      "additionalProperties": true
+    },
+    "LampstandPublishReport": {
+      "type": "object",
+      "required": ["schema_version", "dry_run", "records", "published_count"],
+      "properties": {
+        "schema_version": { "const": "sourceos.lampstand_publish_report.v1" },
+        "dry_run": { "type": "boolean" },
+        "records": { "type": "array", "items": { "$ref": "#/$defs/LampstandSearchRecord" } },
+        "published_count": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": true
+    }
+  }
+}
