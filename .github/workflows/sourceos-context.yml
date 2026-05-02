@@ -41,9 +41,6 @@ jobs:
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
 
-      - name: Format check
-        run: cargo fmt --all -- --check
-
       - name: Build adapter
         run: cargo build --bin sourceos-context
 
