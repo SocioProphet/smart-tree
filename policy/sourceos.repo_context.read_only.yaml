@@ -1,0 +1,135 @@
+id: sourceos.repo_context.read_only
+version: 1
+status: draft
+owner: sourceos-agent-infrastructure
+purpose: >
+  Constrain Smart Tree usage to bounded, read-only repo/code context collection for
+  SocioProphet/SourceOS integrations. This profile is intended for the first
+  adapter implementation and must be enforced externally by Policy Fabric.
+
+allowed_roots:
+  - pattern: "~/dev/**"
+    reason: "User development repositories"
+
+allowed_capabilities:
+  - repo.tree.read
+  - repo.search.read
+  - repo.stats.read
+  - repo.git_status.read
+  - repo.security_scan.read
+  - repo.symbols.read
+  - lampstand.project_root.consume
+  - lampstand.search_record.publish.local
+  - memory_mesh.memory_candidate.emit
+  - sherlock.repo_context.emit
+  - code_registry.component_candidate.emit
+
+denied_capabilities:
+  - repo.write
+  - hooks.install
+  - hooks.modify
+  - dashboard.expose
+  - dashboard.network_bind
+  - pty.spawn
+  - memory.persist.native
+  - network.callback
+  - external.update_check
+  - external.feedback_submit
+  - desktop.search.bypass_lampstand
+  - home.scan.unbounded
+  - system.scan
+  - symlink.follow
+
+path_rules:
+  default_decision: deny
+  allow:
+    - "~/dev/**"
+  deny:
+    - "/"
+    - "/etc/**"
+    - "/proc/**"
+    - "/sys/**"
+    - "/dev/**"
+    - "/run/**"
+    - "/tmp/**"
+    - "~/.ssh/**"
+    - "~/.gnupg/**"
+    - "~/.aws/**"
+    - "~/.config/**"
+    - "~/Library/**"
+    - "~/**"
+  notes:
+    - "Home-directory scanning is denied unless a narrower approved root is supplied."
+    - "Lampstand may know about broader local state, but Smart Tree enrichment remains bounded."
+
+scan_rules:
+  respect_gitignore: true
+  use_default_ignores: true
+  follow_symlinks: false
+  hidden_files_default: false
+  max_depth_default: 5
+  content_search_requires_explicit_query: true
+  snippet_publication_requires_redaction_check: true
+  security_scan_mode: advisory
+
+lampstand_rules:
+  consume_project_roots: true
+  publish_local_records: true
+  publish_raw_content: false
+  publish_snippets_default: false
+  require_classification_for_snippets: true
+  required_record_types:
+    - RepoContextRecord
+    - RepoStructureRecord
+    - SymbolSearchRecord
+    - SecuritySearchRecord
+    - AgentContextRecord
+    - MemoryCandidateRecord
+  notes:
+    - "Lampstand remains the local indexing/search authority."
+    - "Smart Tree must not perform desktop-wide local search outside Lampstand."
+
+memory_mesh_rules:
+  native_smart_tree_memory_persistence: false
+  emit_candidates_only: true
+  promotion_requires_memory_mesh: true
+  candidate_types:
+    - repo_onboarding
+    - work_episode
+    - symbol
+    - security
+    - procedural
+
+network_rules:
+  default_decision: deny
+  allowed_endpoints: []
+  registry_submission_default: deny
+  update_check_default: deny
+  feedback_default: deny
+
+write_rules:
+  default_decision: deny
+  allowed_operations: []
+  escalation_path: "GitOps branch/patch/PR flow only after separate approval"
+
+logging_and_audit:
+  require_policy_decision_trace: true
+  require_tool_provenance: true
+  require_timestamp: true
+  require_adapter_version: true
+  require_source_root: true
+  redact_absolute_paths_when_required: true
+
+review_requirements:
+  before_enabling_watch_mode:
+    - policy_fabric_review
+    - lampstand_owner_review
+    - memory_mesh_owner_review
+  before_enabling_write_operations:
+    - policy_fabric_review
+    - gitops_review
+    - security_review
+  before_enabling_dashboard_or_pty:
+    - security_review
+    - workspace_owner_review
+    - explicit_operator_approval
