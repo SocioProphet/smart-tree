@@ -1,0 +1,140 @@
+id: smart-tree-context-provider
+name: Smart Tree Context Provider
+kind: local_tool_provider
+status: draft
+trust_tier: quarantined_read_only
+source_repo: SocioProphet/smart-tree
+upstream_repo: 8b-is/smart-tree
+runtime:
+  type: rust_binary_or_daemon
+  binaries:
+    - st
+    - std
+  preferred_mode: adapter_via_daemon_or_mcp
+policy_profile: sourceos.repo_context.read_only
+owner: sourceos-agent-infrastructure
+
+purpose: >
+  Provide bounded, policy-governed repo/code context sensing for SourceOS and
+  SocioProphet agents. Smart Tree is not a reasoning agent, not canonical memory,
+  not the desktop search authority, and not a write surface in its initial profile.
+
+integrates_with:
+  - lampstand
+  - memory-mesh
+  - sherlock
+  - agentplane
+  - policy-fabric
+  - prophet-workspace
+  - agent-term
+  - code-registry
+
+allowed_capabilities:
+  - repo.tree.read
+  - repo.search.read
+  - repo.stats.read
+  - repo.git_status.read
+  - repo.security_scan.read
+  - repo.symbols.read
+  - lampstand.project_root.consume
+  - lampstand.search_record.publish.local
+  - memory_mesh.memory_candidate.emit
+  - sherlock.repo_context.emit
+  - code_registry.component_candidate.emit
+
+denied_capabilities:
+  - repo.write
+  - hooks.install
+  - hooks.modify
+  - dashboard.expose
+  - dashboard.network_bind
+  - pty.spawn
+  - memory.persist.native
+  - network.callback
+  - external.update_check
+  - external.feedback_submit
+  - desktop.search.bypass_lampstand
+  - home.scan.unbounded
+  - system.scan
+  - symlink.follow
+
+interfaces:
+  adapter_commands:
+    - sourceos-context snapshot <repo> --format json
+    - sourceos-context search <repo> <query> --format json
+    - sourceos-context symbols <repo> --format json
+    - sourceos-context security <repo> --format json
+    - sourceos-context changed <repo> --format json
+    - sourceos-context lampstand-roots --format json
+    - sourceos-context lampstand-publish <repo> --dry-run --format json
+  output_schema: schemas/sourceos-smart-tree-adapter.v1.schema.json
+  policy_profile_path: policy/sourceos.repo_context.read_only.yaml
+
+lampstand:
+  role: complementary
+  doctrine: >
+    Lampstand remains the local desktop indexing and search authority. Smart Tree
+    consumes Lampstand project-root/freshness hints and publishes approved local
+    search records, but must not bypass Lampstand for desktop-wide search.
+  consumes:
+    - ProjectRootHint
+    - FreshnessHint
+    - SearchTrigger
+  publishes:
+    - RepoContextRecord
+    - RepoStructureRecord
+    - SymbolSearchRecord
+    - SecuritySearchRecord
+    - MemoryCandidateRecord
+
+memory_mesh:
+  role: candidate_emitter_only
+  native_smart_tree_memory: disabled_by_default
+  candidate_types:
+    - repo_onboarding
+    - work_episode
+    - symbol
+    - security
+    - procedural
+
+sherlock:
+  role: evidence_source
+  outputs:
+    - repo_onboarding_dossier
+    - architecture_delta_report
+    - agent_handoff_context
+    - security_risk_report
+    - next_best_action_report
+    - memory_vs_disk_drift_analysis
+
+security:
+  default_network: denied
+  default_persistence: denied
+  default_write: denied
+  default_dashboard: denied
+  default_pty: denied
+  default_hooks: denied
+  scan_mode: advisory
+
+review_gates:
+  before_watch_mode:
+    - policy_fabric_review
+    - lampstand_owner_review
+    - memory_mesh_owner_review
+  before_write_operations:
+    - policy_fabric_review
+    - gitops_review
+    - security_review
+  before_dashboard_or_pty:
+    - security_review
+    - workspace_owner_review
+    - explicit_operator_approval
+
+implementation_status:
+  doctrine: in_pr_1
+  adapter_contract: drafted
+  policy_profile: drafted
+  lampstand_bridge: drafted
+  schema: drafted
+  code: not_started
+  tests: not_started
