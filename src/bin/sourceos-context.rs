@@ -64,23 +64,19 @@ fn main() {
     let cli = Cli::parse();
 
     let result = match cli.command {
-        Command::Snapshot {
-            repo,
-            format,
-            max_depth,
-        } => run_snapshot(repo, format, max_depth),
+        Command::Snapshot { repo, format, max_depth } => run_snapshot(repo, format, max_depth),
         Command::Security { repo, format } => run_security(repo, format),
-        Command::LampstandPublish {
-            repo,
-            dry_run,
-            format,
-            max_depth,
-        } => run_lampstand_publish(repo, dry_run, format, max_depth),
+        Command::LampstandPublish { repo, dry_run, format, max_depth } => {
+            run_lampstand_publish(repo, dry_run, format, max_depth)
+        }
     };
 
     match result {
         Ok(value) => {
             println!("{}", serde_json::to_string_pretty(&value).unwrap());
+            if value.get("schema_version") == Some(&json!("sourceos.adapter_error.v1")) {
+                std::process::exit(2);
+            }
         }
         Err(err) => {
             let value = adapter_error("scan_failed", &err.to_string(), true);
@@ -91,15 +87,34 @@ fn main() {
 }
 
 fn run_snapshot(repo: PathBuf, format: String, max_depth: usize) -> Result<Value> {
-    ensure_json(&format)?;
-    let approved = approve_repo_root(&repo)?;
+    if let Err(err) = ensure_json(&format) {
+        return Ok(adapter_error("schema_validation_failed", &err.to_string(), false));
+    }
+    let approved = match approve_repo_root(&repo) {
+        Ok(root) => root,
+        Err(err) => return Ok(adapter_error("policy_denied", &err.to_string(), false)),
+    };
     let snapshot = build_snapshot(&approved, max_depth)?;
-    Ok(adapter_response("RepoContextSnapshot", snapshot, vec!["repo.tree.read", "repo.stats.read", "repo.git_status.read", "repo.security_scan.read"]))
+    Ok(adapter_response(
+        "RepoContextSnapshot",
+        snapshot,
+        vec![
+            "repo.tree.read",
+            "repo.stats.read",
+            "repo.git_status.read",
+            "repo.security_scan.read",
+        ],
+    ))
 }
 
 fn run_security(repo: PathBuf, format: String) -> Result<Value> {
-    ensure_json(&format)?;
-    let approved = approve_repo_root(&repo)?;
+    if let Err(err) = ensure_json(&format) {
+        return Ok(adapter_error("schema_validation_failed", &err.to_string(), false));
+    }
+    let approved = match approve_repo_root(&repo) {
+        Ok(root) => root,
+        Err(err) => return Ok(adapter_error("policy_denied", &err.to_string(), false)),
+    };
     let scanner = SecurityScanner::new();
     let findings = scanner.scan_directory(&approved.canonical_path)?;
     let signals = findings
@@ -108,12 +123,14 @@ fn run_security(repo: PathBuf, format: String) -> Result<Value> {
         .map(|(idx, finding)| security_signal(idx, finding, &approved))
         .collect::<Vec<_>>();
 
-    let data = json!({
-        "schema_version": "sourceos.security_signal_set.v1",
-        "signals": signals
-    });
-
-    Ok(adapter_response("SecuritySignalSet", data, vec!["repo.security_scan.read"]))
+    Ok(adapter_response(
+        "SecuritySignalSet",
+        json!({
+            "schema_version": "sourceos.security_signal_set.v1",
+            "signals": signals
+        }),
+        vec!["repo.security_scan.read"],
+    ))
 }
 
 fn run_lampstand_publish(
@@ -122,7 +139,9 @@ fn run_lampstand_publish(
     format: String,
     max_depth: usize,
 ) -> Result<Value> {
-    ensure_json(&format)?;
+    if let Err(err) = ensure_json(&format) {
+        return Ok(adapter_error("schema_validation_failed", &err.to_string(), false));
+    }
     if !dry_run {
         return Ok(adapter_error(
             "policy_denied",
@@ -131,21 +150,26 @@ fn run_lampstand_publish(
         ));
     }
 
-    let approved = approve_repo_root(&repo)?;
+    let approved = match approve_repo_root(&repo) {
+        Ok(root) => root,
+        Err(err) => return Ok(adapter_error("policy_denied", &err.to_string(), false)),
+    };
     let snapshot = build_snapshot(&approved, max_depth)?;
     let records = lampstand_records_from_snapshot(&snapshot, &approved);
 
-    let data = json!({
-        "schema_version": "sourceos.lampstand_publish_report.v1",
-        "dry_run": true,
-        "records": records,
-        "published_count": 0
-    });
-
     Ok(adapter_response(
         "LampstandPublishReport",
-        data,
-        vec!["lampstand.search_record.publish.local", "repo.tree.read", "repo.stats.read"],
+        json!({
+            "schema_version": "sourceos.lampstand_publish_report.v1",
+            "dry_run": true,
+            "records": records,
+            "published_count": 0
+        }),
+        vec![
+            "lampstand.search_record.publish.local",
+            "repo.tree.read",
+            "repo.stats.read",
+        ],
     ))
 }
 
@@ -222,8 +246,9 @@ fn is_system_or_sensitive_path(path: &Path, home: &Path) -> bool {
         home.join(".gnupg"),
         home.join(".aws"),
     ];
-
-    denied.iter().any(|denied_path| path == denied_path || path.starts_with(denied_path))
+    denied
+        .iter()
+        .any(|denied_path| path == denied_path || path.starts_with(denied_path))
 }
 
 fn build_snapshot(approved: &ApprovedRoot, max_depth: usize) -> Result<Value> {
@@ -258,12 +283,7 @@ fn build_snapshot(approved: &ApprovedRoot, max_depth: usize) -> Result<Value> {
     let scanner = Scanner::new(&approved.canonical_path, config)?;
     let (nodes, stats) = scanner.scan()?;
 
-    let key_files = key_files(&nodes, approved);
-    let interesting_files = interesting_files(&nodes, approved);
-    let security_signals = security_signals_from_nodes(&nodes, approved);
-    let languages = language_summary(&nodes);
     let branch = nodes.iter().find_map(|node| node.git_branch.clone());
-
     let memory_candidates = vec![json!({
         "candidate_id": stable_id(&format!("repo_onboarding:{}", approved.path_ref)),
         "candidate_type": "repo_onboarding",
@@ -281,7 +301,7 @@ fn build_snapshot(approved: &ApprovedRoot, max_depth: usize) -> Result<Value> {
         "repo_identity": {
             "name": approved.repo_name,
             "git_remote": Value::Null,
-            "branch": branch,
+            "branch": branch.clone(),
             "commit": Value::Null
         },
         "lampstand": {
@@ -292,20 +312,20 @@ fn build_snapshot(approved: &ApprovedRoot, max_depth: usize) -> Result<Value> {
         },
         "summary": {
             "project_type": project_types(&nodes),
-            "languages": languages,
+            "languages": language_summary(&nodes),
             "frameworks": [],
             "build_systems": build_systems(&nodes),
             "test_systems": test_systems(&nodes)
         },
         "stats": stats_json(&stats),
-        "key_files": key_files,
-        "interesting_files": interesting_files,
+        "key_files": key_files(&nodes, approved),
+        "interesting_files": interesting_files(&nodes, approved),
         "git": {
             "branch": branch,
             "remote": Value::Null,
             "commit": Value::Null
         },
-        "security_signals": security_signals,
+        "security_signals": security_signals_from_nodes(&nodes, approved),
         "symbol_summary": {},
         "memory_candidates": memory_candidates
     }))
@@ -349,9 +369,7 @@ fn interesting_files(nodes: &[FileNode], approved: &ApprovedRoot) -> Vec<Value> 
         .filter(|node| !node.is_dir)
         .filter(|node| !node.is_ignored)
         .collect::<Vec<_>>();
-
     files.sort_by(|a, b| b.size.cmp(&a.size));
-
     files
         .into_iter()
         .take(25)
@@ -362,14 +380,12 @@ fn interesting_files(nodes: &[FileNode], approved: &ApprovedRoot) -> Vec<Value> 
 fn security_signals_from_nodes(nodes: &[FileNode], approved: &ApprovedRoot) -> Vec<Value> {
     let mut idx = 0usize;
     let mut signals = Vec::new();
-
     for node in nodes {
         for finding in &node.security_findings {
             signals.push(security_signal_with_path(idx, finding, approved, &node.path));
             idx += 1;
         }
     }
-
     signals
 }
 
@@ -418,12 +434,11 @@ fn security_signal_with_path(
 
 fn lampstand_records_from_snapshot(snapshot: &Value, approved: &ApprovedRoot) -> Vec<Value> {
     let mut records = Vec::new();
-    let repo_title = format!("Repo context: {}", approved.repo_name);
     let stats = snapshot.get("stats").cloned().unwrap_or_else(|| json!({}));
 
     records.push(json!({
         "record_type": "sourceos.lampstand.repo_context_record.v1",
-        "title": repo_title,
+        "title": format!("Repo context: {}", approved.repo_name),
         "object_kind": "repo_context",
         "source_root_id": Value::Null,
         "path_ref": approved.path_ref,
@@ -433,10 +448,7 @@ fn lampstand_records_from_snapshot(snapshot: &Value, approved: &ApprovedRoot) ->
         "handling_tags": ["local-only", "repo-context", "smart-tree"],
         "freshness": Value::Null,
         "policy_decision": policy_decision(vec!["lampstand.search_record.publish.local"]),
-        "source": {
-            "system": ADAPTER_NAME,
-            "repo": TOOL_REPO
-        }
+        "source": { "system": ADAPTER_NAME, "repo": TOOL_REPO }
     }));
 
     records.push(json!({
@@ -451,10 +463,7 @@ fn lampstand_records_from_snapshot(snapshot: &Value, approved: &ApprovedRoot) ->
         "handling_tags": ["local-only", "repo-structure", "smart-tree"],
         "freshness": Value::Null,
         "policy_decision": policy_decision(vec!["lampstand.search_record.publish.local"]),
-        "source": {
-            "system": ADAPTER_NAME,
-            "repo": TOOL_REPO
-        }
+        "source": { "system": ADAPTER_NAME, "repo": TOOL_REPO }
     }));
 
     if let Some(signals) = snapshot.get("security_signals").and_then(|value| value.as_array()) {
@@ -475,10 +484,7 @@ fn lampstand_records_from_snapshot(snapshot: &Value, approved: &ApprovedRoot) ->
                 "handling_tags": ["local-only", "security-advisory", "smart-tree"],
                 "freshness": Value::Null,
                 "policy_decision": policy_decision(vec!["lampstand.search_record.publish.local", "repo.security_scan.read"]),
-                "source": {
-                    "system": ADAPTER_NAME,
-                    "repo": TOOL_REPO
-                }
+                "source": { "system": ADAPTER_NAME, "repo": TOOL_REPO }
             }));
         }
     }
@@ -497,31 +503,19 @@ fn lampstand_records_from_snapshot(snapshot: &Value, approved: &ApprovedRoot) ->
                 "handling_tags": ["local-only", "memory-candidate", "smart-tree"],
                 "freshness": Value::Null,
                 "policy_decision": policy_decision(vec!["lampstand.search_record.publish.local", "memory_mesh.memory_candidate.emit"]),
-                "source": {
-                    "system": ADAPTER_NAME,
-                    "repo": TOOL_REPO
-                }
+                "source": { "system": ADAPTER_NAME, "repo": TOOL_REPO }
             }));
         }
     }
-
     records
 }
 
 fn project_types(nodes: &[FileNode]) -> Vec<String> {
     let mut types = Vec::new();
-    if has_file(nodes, "Cargo.toml") {
-        types.push("rust".to_string());
-    }
-    if has_file(nodes, "package.json") {
-        types.push("node".to_string());
-    }
-    if has_file(nodes, "pyproject.toml") || has_file(nodes, "requirements.txt") {
-        types.push("python".to_string());
-    }
-    if has_file(nodes, "go.mod") {
-        types.push("go".to_string());
-    }
+    if has_file(nodes, "Cargo.toml") { types.push("rust".to_string()); }
+    if has_file(nodes, "package.json") { types.push("node".to_string()); }
+    if has_file(nodes, "pyproject.toml") || has_file(nodes, "requirements.txt") { types.push("python".to_string()); }
+    if has_file(nodes, "go.mod") { types.push("go".to_string()); }
     types.sort();
     types.dedup();
     types
@@ -551,28 +545,16 @@ fn language_summary(nodes: &[FileNode]) -> Vec<String> {
 
 fn build_systems(nodes: &[FileNode]) -> Vec<String> {
     let mut systems = Vec::new();
-    if has_file(nodes, "Cargo.toml") {
-        systems.push("cargo".to_string());
-    }
-    if has_file(nodes, "package.json") {
-        systems.push("npm_or_node".to_string());
-    }
-    if has_file(nodes, "pyproject.toml") {
-        systems.push("pyproject".to_string());
-    }
-    if has_file(nodes, "Makefile") {
-        systems.push("make".to_string());
-    }
+    if has_file(nodes, "Cargo.toml") { systems.push("cargo".to_string()); }
+    if has_file(nodes, "package.json") { systems.push("npm_or_node".to_string()); }
+    if has_file(nodes, "pyproject.toml") { systems.push("pyproject".to_string()); }
+    if has_file(nodes, "Makefile") { systems.push("make".to_string()); }
     systems
 }
 
 fn test_systems(nodes: &[FileNode]) -> Vec<String> {
     let mut systems = Vec::new();
-    if nodes.iter().any(|node| {
-        node.path
-            .components()
-            .any(|component| component.as_os_str() == "tests")
-    }) {
+    if nodes.iter().any(|node| node.path.components().any(|component| component.as_os_str() == "tests")) {
         systems.push("tests_dir".to_string());
     }
     if nodes.iter().any(|node| {
