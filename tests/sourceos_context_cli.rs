@@ -11,7 +11,11 @@ fn make_home_with_repo() -> (tempfile::TempDir, std::path::PathBuf) {
     let home = tempdir().expect("temp home");
     let repo = home.path().join("dev").join("example");
     fs::create_dir_all(repo.join("src")).expect("repo dirs");
-    fs::write(repo.join("Cargo.toml"), "[package]\nname = \"example\"\nversion = \"0.1.0\"\n").expect("Cargo.toml");
+    fs::write(
+        repo.join("Cargo.toml"),
+        "[package]\nname = \"example\"\nversion = \"0.1.0\"\n",
+    )
+    .expect("Cargo.toml");
     fs::write(repo.join("README.md"), "# Example\n").expect("README");
     fs::write(repo.join("src").join("main.rs"), "fn main() {}\n").expect("main.rs");
     (home, repo)
@@ -34,7 +38,10 @@ fn snapshot_allows_repo_under_home_dev() {
     assert_eq!(value["schema_version"], "sourceos.adapter_response.v1");
     assert_eq!(value["response_type"], "RepoContextSnapshot");
     assert_eq!(value["policy_profile"], "sourceos.repo_context.read_only");
-    assert_eq!(value["data"]["schema_version"], "sourceos.repo_context_snapshot.v1");
+    assert_eq!(
+        value["data"]["schema_version"],
+        "sourceos.repo_context_snapshot.v1"
+    );
     assert_eq!(value["data"]["repo_identity"]["name"], "example");
 }
 
@@ -83,6 +90,23 @@ fn lampstand_publish_is_dry_run_only_and_returns_records() {
     assert_eq!(value["data"]["dry_run"], true);
     assert_eq!(value["data"]["published_count"], 0);
     assert!(value["data"]["records"].as_array().expect("records array").len() >= 2);
+}
+
+#[test]
+fn lampstand_roots_returns_empty_stub_without_inventing_state() {
+    let output = cargo_bin()
+        .args(["lampstand-roots", "--format", "json"])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+
+    let value: Value = serde_json::from_slice(&output).expect("valid json");
+    assert_eq!(value["response_type"], "LampstandRootSet");
+    assert_eq!(value["data"]["schema_version"], "sourceos.lampstand_root_set.v1");
+    assert_eq!(value["data"]["adapter_mode"], "stub");
+    assert!(value["data"]["roots"].as_array().expect("roots array").is_empty());
 }
 
 #[test]
