@@ -7,6 +7,7 @@ on:
       - "src/sourceos_context_adapter.rs"
       - "tests/sourceos_context_cli.rs"
       - "schemas/sourceos-smart-tree-adapter.v1.schema.json"
+      - "tools/validate_sourceos_adapter_schema.py"
       - "policy/sourceos.repo_context.read_only.yaml"
       - ".github/workflows/sourceos-context.yml"
       - "Cargo.toml"
@@ -20,6 +21,7 @@ on:
       - "src/sourceos_context_adapter.rs"
       - "tests/sourceos_context_cli.rs"
       - "schemas/sourceos-smart-tree-adapter.v1.schema.json"
+      - "tools/validate_sourceos_adapter_schema.py"
       - "policy/sourceos.repo_context.read_only.yaml"
       - ".github/workflows/sourceos-context.yml"
       - "Cargo.toml"
@@ -45,6 +47,11 @@ jobs:
 
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
+
+      - name: Validate adapter JSON schema examples
+        run: |
+          python -m pip install --upgrade jsonschema
+          python tools/validate_sourceos_adapter_schema.py
 
       - name: Build adapter
         run: cargo build --bin sourceos-context
