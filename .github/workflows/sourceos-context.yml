@@ -1,0 +1,53 @@
+name: SourceOS Context Adapter
+
+on:
+  pull_request:
+    paths:
+      - "src/bin/sourceos-context.rs"
+      - "src/sourceos_context_adapter.rs"
+      - "tests/sourceos_context_cli.rs"
+      - "schemas/sourceos-smart-tree-adapter.v1.schema.json"
+      - "policy/sourceos.repo_context.read_only.yaml"
+      - ".github/workflows/sourceos-context.yml"
+      - "Cargo.toml"
+      - "Cargo.lock"
+  push:
+    branches:
+      - main
+      - "socioprophet/**"
+    paths:
+      - "src/bin/sourceos-context.rs"
+      - "src/sourceos_context_adapter.rs"
+      - "tests/sourceos_context_cli.rs"
+      - "schemas/sourceos-smart-tree-adapter.v1.schema.json"
+      - "policy/sourceos.repo_context.read_only.yaml"
+      - ".github/workflows/sourceos-context.yml"
+      - "Cargo.toml"
+      - "Cargo.lock"
+
+jobs:
+  sourceos-context:
+    name: Build and test sourceos-context
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libdbus-1-dev pkg-config
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build adapter
+        run: cargo build --bin sourceos-context
+
+      - name: Run adapter smoke tests
+        run: cargo test --test sourceos_context_cli -- --nocapture
