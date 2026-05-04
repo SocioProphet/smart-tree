@@ -49,6 +49,15 @@ enum Command {
         #[arg(long, default_value_t = 5)]
         max_depth: usize,
     },
+    /// Return Lampstand project-root hints known to this adapter.
+    ///
+    /// This initial stub intentionally returns an empty root set until the real
+    /// Lampstand RPC/unixjson bridge is added. It keeps the command contract
+    /// stable without bypassing Lampstand or inventing local state.
+    LampstandRoots {
+        #[arg(long, default_value = "json")]
+        format: String,
+    },
 }
 
 pub fn main() {
@@ -66,6 +75,7 @@ pub fn main() {
             format,
             max_depth,
         } => run_lampstand_publish(repo, dry_run, format, max_depth),
+        Command::LampstandRoots { format } => run_lampstand_roots(format),
     };
 
     match result {
@@ -165,6 +175,26 @@ fn run_lampstand_publish(
             "repo.tree.read",
             "repo.stats.read",
         ],
+    ))
+}
+
+fn run_lampstand_roots(format: String) -> Result<Value> {
+    if let Err(err) = ensure_json(&format) {
+        return Ok(adapter_error("schema_validation_failed", &err.to_string(), false));
+    }
+
+    Ok(adapter_response(
+        "LampstandRootSet",
+        json!({
+            "schema_version": "sourceos.lampstand_root_set.v1",
+            "roots": [],
+            "adapter_mode": "stub",
+            "notes": [
+                "Real Lampstand RPC/unixjson root discovery is intentionally deferred.",
+                "This adapter does not invent local state or bypass Lampstand."
+            ]
+        }),
+        vec!["lampstand.project_root.consume"],
     ))
 }
 

@@ -2,7 +2,6 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.socioprophet.org/sourceos-smart-tree-adapter.v1.schema.json",
   "title": "SourceOS Smart Tree Adapter Schemas",
-  "description": "Normalized JSON schemas for Smart Tree integration with Lampstand, Memory Mesh, Sherlock, AgentPlane, Policy Fabric, and code registry consumers.",
   "type": "object",
   "oneOf": [
     { "$ref": "#/$defs/AdapterResponse" },
@@ -27,7 +26,7 @@
           ]
         },
         "source": { "const": "smart-tree" },
-        "generated_at": { "type": "string", "format": "date-time" },
+        "generated_at": { "type": "string" },
         "policy_profile": { "type": "string" },
         "policy_decision": { "$ref": "#/$defs/PolicyDecision" },
         "provenance": { "$ref": "#/$defs/Provenance" },
@@ -38,6 +37,7 @@
             { "$ref": "#/$defs/SymbolObservationSet" },
             { "$ref": "#/$defs/SecuritySignalSet" },
             { "$ref": "#/$defs/RepoChangeSet" },
+            { "$ref": "#/$defs/LampstandRootSet" },
             { "$ref": "#/$defs/LampstandPublishReport" }
           ]
         }
@@ -75,7 +75,7 @@
         "decision": { "type": "string", "enum": ["allow", "deny", "allow_with_redaction", "review_required"] },
         "ruleset": { "type": "string" },
         "capabilities": { "type": "array", "items": { "type": "string" } },
-        "redactions": { "type": "array", "items": { "type": "string" }, "default": [] },
+        "redactions": { "type": "array", "items": { "type": "string" } },
         "reason": { "type": ["string", "null"] }
       },
       "additionalProperties": true
@@ -111,7 +111,7 @@
         "symbol_summary": { "type": "object" },
         "memory_candidates": { "type": "array", "items": { "$ref": "#/$defs/MemoryCandidate" } }
       },
-      "additionalProperties": false
+      "additionalProperties": true
     },
     "RepoIdentity": {
       "type": "object",
@@ -167,11 +167,11 @@
         "object_kind": { "type": "string", "enum": ["file", "directory", "symlink", "unknown"] },
         "category": { "type": ["string", "null"] },
         "size_bytes": { "type": ["integer", "null"], "minimum": 0 },
-        "mtime": { "type": ["string", "null"], "format": "date-time" },
+        "mtime": { "type": ["string", "null"] },
         "content_hash": { "type": ["string", "null"] },
         "metadata_hash": { "type": ["string", "null"] },
-        "is_hidden": { "type": "boolean", "default": false },
-        "is_ignored": { "type": "boolean", "default": false },
+        "is_hidden": { "type": "boolean" },
+        "is_ignored": { "type": "boolean" },
         "interest_score": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
         "change_status": { "type": ["string", "null"] },
         "security_signal_ids": { "type": "array", "items": { "type": "string" } }
@@ -271,6 +271,30 @@
         "source_refs": { "type": "array", "items": { "type": "string" } },
         "policy_labels": { "type": "array", "items": { "type": "string" } },
         "recommended_action": { "type": "string", "enum": ["promote", "review", "discard"] }
+      },
+      "additionalProperties": true
+    },
+    "LampstandRootSet": {
+      "type": "object",
+      "required": ["schema_version", "roots", "adapter_mode"],
+      "properties": {
+        "schema_version": { "const": "sourceos.lampstand_root_set.v1" },
+        "roots": { "type": "array", "items": { "$ref": "#/$defs/LampstandRootHint" } },
+        "adapter_mode": { "type": "string", "enum": ["stub", "rpc", "unixjson"] },
+        "notes": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": true
+    },
+    "LampstandRootHint": {
+      "type": "object",
+      "required": ["source_root_id", "path_ref", "root_kind"],
+      "properties": {
+        "source_root_id": { "type": "string" },
+        "path_ref": { "type": "string" },
+        "root_kind": { "type": "string" },
+        "freshness": { "type": ["object", "null"] },
+        "classification": { "type": ["string", "null"] },
+        "handling_tags": { "type": "array", "items": { "type": "string" } }
       },
       "additionalProperties": true
     },
