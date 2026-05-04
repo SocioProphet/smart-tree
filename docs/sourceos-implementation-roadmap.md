@@ -10,9 +10,23 @@ Make Smart Tree a constrained, replaceable repo/code sensing engine for the Sour
 
 Smart Tree should produce bounded, policy-aware observations. Lampstand owns local indexing/search. Memory Mesh owns durable memory. Sherlock owns interpretation. AgentPlane owns routing. Policy Fabric owns authorization.
 
+## Stable Done Target for the Current Closeout
+
+The near-term target is not full Lampstand write integration. The stable target is a merged, tested, read-only adapter baseline that is safe for downstream integration work.
+
+Done means:
+
+- `sourceos-context` builds in CI.
+- Adapter smoke tests pass in CI.
+- JSON schema examples validate in CI.
+- `snapshot`, `security`, `lampstand-publish --dry-run`, and `lampstand-roots` exist.
+- Lampstand remains first-class and is not bypassed.
+- No hooks, writes, dashboard exposure, PTY, external callbacks, or native Smart Tree global memory persistence are exposed.
+- Real Lampstand RPC/unixjson writes, Sherlock ingestion, Memory Mesh promotion, and symbol extraction are explicitly deferred behind follow-up gates.
+
 ## Milestone 0: Documentation and Governance Baseline
 
-Status: in progress on PR #1.
+Status: merged in PR #1.
 
 Deliverables:
 
@@ -31,21 +45,12 @@ Acceptance:
 
 ## Milestone 1: Adapter Skeleton
 
-Goal: create the SourceOS adapter entry point without exposing unsafe capabilities.
-
-Deliverables:
-
-- Adapter module or binary stub.
-- `sourceos-context --help` style command surface or documented equivalent.
-- Adapter response envelope implementation.
-- Structured error envelope implementation.
-- Schema validation in tests.
+Status: merged in PR #1.
 
 Commands:
 
 ```bash
 sourceos-context snapshot <repo> --format json
-sourceos-context search <repo> <query> --format json
 sourceos-context security <repo> --format json
 sourceos-context lampstand-publish <repo> --dry-run --format json
 ```
@@ -59,15 +64,7 @@ Acceptance:
 
 ## Milestone 2: Policy Gate Integration
 
-Goal: enforce `sourceos.repo_context.read_only` before every adapter action.
-
-Deliverables:
-
-- Policy profile loader.
-- Root/path validator.
-- Capability validator.
-- Redaction marker support.
-- Policy decision trace in every response.
+Status: merged in PR #1, hardened in PR #2.
 
 Acceptance:
 
@@ -79,103 +76,71 @@ Acceptance:
 
 ## Milestone 3: Snapshot Implementation
 
-Goal: produce `RepoContextSnapshot` for approved repo roots.
-
-Deliverables:
-
-- Bounded scan using Smart Tree scanner/daemon/MCP.
-- Key files extraction.
-- Repo stats mapping.
-- Git branch/remote/commit mapping where available.
-- Interesting file mapping.
-- Security signal mapping where available.
-- Memory candidate generation for repo onboarding.
+Status: merged in PR #1.
 
 Acceptance:
 
-- Snapshot validates against schema.
-- Snapshot is stable on repeated runs.
 - Snapshot avoids raw content unless explicitly requested and approved.
 - Snapshot includes Lampstand link fields even when Lampstand is unavailable.
+- Snapshot is covered by CLI smoke tests.
+
+Remaining hardening:
+
+- Add full schema validation against live command outputs.
+- Add richer git remote/commit capture later.
 
 ## Milestone 4: Lampstand Dry-Run Bridge
 
-Goal: map snapshots into Lampstand-compatible local search records without writing.
-
-Deliverables:
-
-- `lampstand-publish --dry-run`.
-- Mapping to:
-  - `RepoContextRecord`
-  - `RepoStructureRecord`
-  - `SecuritySearchRecord`
-  - `SymbolSearchRecord` when symbols exist
-  - `MemoryCandidateRecord`
-- Publication policy checks.
+Status: merged in PR #1, hardened in PR #2.
 
 Acceptance:
 
 - Dry-run returns records and policy decisions.
 - Raw content is not published.
-- Snippets are withheld unless classification allows them.
+- Snippets are limited to generated summaries.
 - Lampstand unavailable does not break normal snapshot mode.
+- `lampstand-roots` returns an explicit empty stub until real RPC/unixjson integration exists.
 
 ## Milestone 5: Lampstand Write Bridge
 
-Goal: publish approved records into Lampstand through its service boundary.
+Status: deferred.
 
-Deliverables:
+This is intentionally not part of the current stable done target.
 
-- Lampstand RPC/unixjson client adapter.
-- Publish report with accepted/rejected counts.
-- Idempotency strategy using content/metadata hashes.
-- Staleness/freshness metadata.
+Required before implementation:
 
-Acceptance:
-
-- Publication fails closed if Lampstand is unavailable.
-- Published records include provenance and policy decision.
-- Repeated publication does not duplicate records unnecessarily.
-- Lampstand remains source of local search truth.
+- Lampstand owner review.
+- Policy Fabric review.
+- Exact RPC/unixjson contract from `SocioProphet/lampstand`.
+- Idempotency and stale-record behavior.
+- Local-only classification and redaction rules.
 
 ## Milestone 6: Memory Mesh Candidate Emission
 
-Goal: generate useful Memory Mesh candidates without persisting Smart Tree-native memory.
+Status: initial repo-onboarding candidate merged in PR #1.
 
-Deliverables:
+Remaining:
 
-- Repo onboarding memory candidate.
 - Security memory candidates.
-- Procedural memory candidates where command/build/test signals are detected.
-- Candidate IDs and source references.
-- Recommended action: promote/review/discard.
-
-Acceptance:
-
-- Smart Tree-native `.m8` persistence remains disabled by default.
-- Candidates are bounded, deduplicated, and tagged.
-- Candidate output validates against schema.
+- Procedural memory candidates.
+- Deduplication strategy.
+- Real Memory Mesh promotion API integration.
 
 ## Milestone 7: Sherlock Consumption
 
-Goal: make Sherlock able to use snapshots as live repo evidence.
+Status: deferred.
 
-Deliverables:
+Remaining:
 
-- Documented Sherlock adapter input.
-- Example repo dossier generated from a snapshot.
-- Drift comparison contract: prior memory vs current snapshot.
-
-Acceptance:
-
-- Sherlock can ingest a snapshot without Smart Tree-specific parsing.
-- Sherlock can report gaps, drift, risks, and next actions.
+- Document Sherlock adapter input.
+- Add example repo dossier generated from snapshot.
+- Add drift comparison contract: prior memory vs current snapshot.
 
 ## Milestone 8: Symbol / SmartPastCode Lane
 
-Goal: normalize code component extraction for the code registry and Memory Mesh symbol memory.
+Status: deferred.
 
-Deliverables:
+Remaining:
 
 - Rust symbol extraction mapping.
 - `SymbolObservationSet` output.
@@ -183,69 +148,44 @@ Deliverables:
 - Lampstand `SymbolSearchRecord` mapping.
 - Future language expansion notes.
 
-Acceptance:
-
-- Symbol output validates against schema.
-- Extraction is parse-only and does not execute code.
-- Each symbol includes origin, path, line range where possible, content hash, semantic tags, and clearance.
-
 ## Milestone 9: Security Signal Lane
 
-Goal: route Smart Tree security scanner findings into Policy Fabric and Lampstand records.
+Status: initial security signal normalization merged in PR #1.
 
-Deliverables:
+Remaining:
 
-- Security scanner mapping to `SecuritySignalSet`.
-- Severity normalization.
-- Context-kind normalization: docs/history/config/executable/code.
-- Policy recommendations.
-- False-positive handling notes.
-
-Acceptance:
-
-- Documentation-only matches are downgraded or marked appropriately.
-- High/critical findings are reviewable.
-- Lampstand publication is redacted and local-only by default.
+- Documentation-only downgrade rules.
+- More false-positive controls.
+- Security memory candidates.
+- Policy Fabric advisory handoff.
 
 ## Milestone 10: Agent Registry Registration
 
-Goal: register Smart Tree as a constrained tool provider.
+Status: draft manifest merged in PR #1.
 
-Deliverables:
+Remaining:
 
-- Registry manifest.
-- Capability allow/deny list.
-- Policy profile pointer.
-- Trust tier: `quarantined_read_only`.
-
-Acceptance:
-
-- Smart Tree is not registered as a reasoning agent.
-- Agents can discover read-only repo context capabilities.
-- Denied capabilities are explicit.
+- Register/consume from the actual Agent Registry repo or service.
+- Add validation for manifest shape.
 
 ## Milestone 11: Prophet Workspace / agent-term UX
 
-Goal: expose the capability to operators and terminal agents without bypassing policy.
+Status: deferred.
 
-Deliverables:
+Expected commands:
 
-- `/context snapshot`
-- `/context search <query>`
-- `/context symbols`
-- `/context security`
-- `/context lampstand-roots`
-- `/context lampstand-publish`
+```text
+/context snapshot
+/context security
+/context lampstand-roots
+/context lampstand-publish
+```
 
-Acceptance:
-
-- Calls route through AgentPlane and Policy Fabric.
-- Operator sees policy decision trace.
-- Lampstand freshness/search context is visible.
+Search and symbol commands remain future work until those adapter operations exist.
 
 ## Milestone 12: Watch Mode and Controlled Writes
 
-Goal: defer risky capabilities until read-only value is proven.
+Status: deferred and explicitly out of scope.
 
 Rules:
 
@@ -254,46 +194,35 @@ Rules:
 - Write operations require GitOps branch/patch/PR flow.
 - Dashboard/PTY requires explicit security review.
 
-Acceptance:
-
-- No uncontrolled write path exists.
-- No Smart Tree dashboard network exposure exists.
-- No Smart Tree-native global memory persistence is enabled by default.
-
 ## Validation Matrix
 
-Test against these repo types:
+Current validated checks:
 
-- Rust repo
-- Python repo
-- TypeScript repo
-- mixed monorepo
-- docs-heavy repo
-- repo with suspicious MCP/hook config
-- repo with large ignored directories
+- CI build for `sourceos-context`.
+- CI smoke tests for snapshot, denied root, Lampstand dry-run, and security redaction.
+- CI schema example validation is being added in PR #2.
 
-Required checks:
+Remaining checks:
 
-- schema validation
-- policy denial behavior
-- path redaction behavior
-- Lampstand dry-run mapping
-- Memory Mesh candidate quality
-- security signal normalization
+- Live output schema validation.
+- Policy denial matrix expansion.
+- Symlink traversal denial test.
+- Unbounded home-directory denial test.
+- Lampstand record idempotency when real write bridge exists.
 
 ## Progress Readout
 
-Current status after PR #1 docs additions:
+Current status after PR #1 merge and PR #2 hardening work:
 
-- Fork hygiene / integration doctrine: 70%
-- Adapter contract: 60%
-- Policy profile: 60%
-- Lampstand bridge: 60%
-- Schema baseline: 50%
-- Implementation code: 0%
-- Tests: 0%
-- Runtime validation: 0%
+- Fork hygiene / integration doctrine: 90%
+- Adapter contract: 85%
+- Policy profile: 85%
+- Lampstand bridge: 80%
+- Schema baseline: 80%
+- Implementation code: 45%
+- Tests: 45%
+- Runtime validation: 45%
 
 ## Immediate Next Step
 
-Implement Milestone 1 adapter skeleton and Milestone 2 policy gate before any runtime integration.
+Merge PR #2 after CI passes, then add live-output schema validation and final closeout documentation.
