@@ -21,6 +21,14 @@ fn make_home_with_repo() -> (tempfile::TempDir, std::path::PathBuf) {
     (home, repo)
 }
 
+fn assert_policy_denied(output: Vec<u8>) {
+    // Every denied path must fail closed with the structured SourceOS adapter error envelope.
+    let value: Value = serde_json::from_slice(&output).expect("valid json");
+    assert_eq!(value["schema_version"], "sourceos.adapter_error.v1");
+    assert_eq!(value["error_code"], "policy_denied");
+    assert_eq!(value["policy_decision"]["decision"], "deny");
+}
+
 #[test]
 fn snapshot_allows_repo_under_home_dev() {
     let (home, repo) = make_home_with_repo();
@@ -60,10 +68,46 @@ fn snapshot_denies_repo_outside_home_dev() {
         .stdout
         .clone();
 
-    let value: Value = serde_json::from_slice(&output).expect("valid json");
-    assert_eq!(value["schema_version"], "sourceos.adapter_error.v1");
-    assert_eq!(value["error_code"], "policy_denied");
-    assert_eq!(value["policy_decision"]["decision"], "deny");
+    assert_policy_denied(output);
+}
+
+#[test]
+fn snapshot_denies_unbounded_home_root() {
+    let (home, _) = make_home_with_repo();
+
+    let output = cargo_bin()
+        .env("HOME", home.path())
+        .args(["snapshot", home.path().to_str().unwrap(), "--format", "json"])
+        .assert()
+        .code(2)
+        .get_output()
+        .stdout
+        .clone();
+
+    assert_policy_denied(output);
+}
+
+#[test]
+fn snapshot_denies_symlink_root_even_if_target_is_under_home_dev() {
+    let (home, repo) = make_home_with_repo();
+    let link = home.path().join("dev").join("repo-link");
+
+    #[cfg(unix)]
+    std::os::unix::fs::symlink(&repo, &link).expect("symlink");
+
+    #[cfg(windows)]
+    std::os::windows::fs::symlink_dir(&repo, &link).expect("symlink");
+
+    let output = cargo_bin()
+        .env("HOME", home.path())
+        .args(["snapshot", link.to_str().unwrap(), "--format", "json"])
+        .assert()
+        .code(2)
+        .get_output()
+        .stdout
+        .clone();
+
+    assert_policy_denied(output);
 }
 
 #[test]

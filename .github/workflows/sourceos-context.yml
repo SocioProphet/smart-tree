@@ -8,6 +8,7 @@ on:
       - "tests/sourceos_context_cli.rs"
       - "schemas/sourceos-smart-tree-adapter.v1.schema.json"
       - "tools/validate_sourceos_adapter_schema.py"
+      - "tools/validate_sourceos_adapter_live_outputs.py"
       - "policy/sourceos.repo_context.read_only.yaml"
       - ".github/workflows/sourceos-context.yml"
       - "Cargo.toml"
@@ -22,6 +23,7 @@ on:
       - "tests/sourceos_context_cli.rs"
       - "schemas/sourceos-smart-tree-adapter.v1.schema.json"
       - "tools/validate_sourceos_adapter_schema.py"
+      - "tools/validate_sourceos_adapter_live_outputs.py"
       - "policy/sourceos.repo_context.read_only.yaml"
       - ".github/workflows/sourceos-context.yml"
       - "Cargo.toml"
@@ -55,6 +57,9 @@ jobs:
 
       - name: Build adapter
         run: cargo build --bin sourceos-context
+
+      - name: Validate live adapter outputs
+        run: python tools/validate_sourceos_adapter_live_outputs.py
 
       - name: Run adapter smoke tests
         run: cargo test --test sourceos_context_cli -- --nocapture
