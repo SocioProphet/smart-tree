@@ -1,6 +1,6 @@
-#[path = "../sourceos_context_adapter.rs"]
-mod sourceos_context_adapter;
+#[path = "../sourceos_context_adapter_publish.rs"]
+mod sourceos_context_adapter_publish;
 
 fn main() {
-    sourceos_context_adapter::main();
+    sourceos_context_adapter_publish::main();
 }
