@@ -2,6 +2,8 @@ use anyhow::{anyhow, Context, Result};
 use chrono::{DateTime, Utc};
 use clap::{Parser, Subcommand};
 use serde_json::{json, Value};
+use std::io::{BufRead, BufReader, Write};
+use std::os::unix::net::UnixStream;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 use st::security_scan::{RiskLevel, SecurityFinding, SecurityScanner};
@@ -11,6 +13,7 @@ const POLICY_PROFILE: &str = "sourceos.repo_context.read_only";
 const ADAPTER_NAME: &str = "sourceos-smart-tree-adapter";
 const TOOL_REPO: &str = "SocioProphet/smart-tree";
 const UPSTREAM_REPO: &str = "8b-is/smart-tree";
+const LAMPSTAND_SOCKET_NAME: &str = "lampstand.sock";
 
 #[derive(Debug, Parser)]
 #[command(
@@ -49,14 +52,13 @@ enum Command {
         #[arg(long, default_value_t = 5)]
         max_depth: usize,
     },
-    /// Return Lampstand project-root hints known to this adapter.
-    ///
-    /// This initial stub intentionally returns an empty root set until the real
-    /// Lampstand RPC/unixjson bridge is added. It keeps the command contract
-    /// stable without bypassing Lampstand or inventing local state.
+    /// Return Lampstand project-root hints from Lampstand's unixjson RPC.
     LampstandRoots {
         #[arg(long, default_value = "json")]
         format: String,
+        /// Override the Lampstand unixjson socket path.
+        #[arg(long)]
+        socket: Option<PathBuf>,
     },
 }
 
@@ -75,7 +77,7 @@ pub fn main() {
             format,
             max_depth,
         } => run_lampstand_publish(repo, dry_run, format, max_depth),
-        Command::LampstandRoots { format } => run_lampstand_roots(format),
+        Command::LampstandRoots { format, socket } => run_lampstand_roots(format, socket),
     };
 
     match result {
@@ -178,24 +180,103 @@ fn run_lampstand_publish(
     ))
 }
 
-fn run_lampstand_roots(format: String) -> Result<Value> {
+fn run_lampstand_roots(format: String, socket: Option<PathBuf>) -> Result<Value> {
     if let Err(err) = ensure_json(&format) {
         return Ok(adapter_error("schema_validation_failed", &err.to_string(), false));
     }
 
+    let socket_path = socket.unwrap_or_else(default_lampstand_socket_path);
+    let rpc_result = match lampstand_root_hints(&socket_path) {
+        Ok(value) => value,
+        Err(err) => {
+            return Ok(adapter_error(
+                "lampstand_unavailable",
+                &format!("Lampstand RootHints unavailable at {}: {}", socket_path.display(), err),
+                true,
+            ));
+        }
+    };
+
+    let roots = rpc_result
+        .get("roots")
+        .and_then(|value| value.as_array())
+        .map(|items| {
+            items
+                .iter()
+                .map(normalize_lampstand_root_hint)
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+
+    let data = json!({
+        "schema_version": "sourceos.lampstand_root_set.v1",
+        "roots": roots,
+        "adapter_mode": rpc_result
+            .get("adapter_mode")
+            .and_then(|value| value.as_str())
+            .unwrap_or("rpc"),
+        "socket_path": socket_path.display().to_string(),
+        "notes": [
+            "Root hints come from Lampstand and do not authorize Smart Tree enrichment.",
+            "Policy Fabric and sourceos.repo_context.read_only still gate all scans."
+        ]
+    });
+
     Ok(adapter_response(
         "LampstandRootSet",
-        json!({
-            "schema_version": "sourceos.lampstand_root_set.v1",
-            "roots": [],
-            "adapter_mode": "stub",
-            "notes": [
-                "Real Lampstand RPC/unixjson root discovery is intentionally deferred.",
-                "This adapter does not invent local state or bypass Lampstand."
-            ]
-        }),
+        data,
         vec!["lampstand.project_root.consume"],
     ))
+}
+
+fn lampstand_root_hints(socket_path: &Path) -> Result<Value> {
+    let mut stream = UnixStream::connect(socket_path)
+        .with_context(|| "failed to connect to Lampstand unixjson socket")?;
+    let request = json!({"method": "RootHints", "params": {}});
+    stream.write_all(request.to_string().as_bytes())?;
+    stream.write_all(b"\n")?;
+    stream.flush()?;
+
+    let mut reader = BufReader::new(stream);
+    let mut line = String::new();
+    reader.read_line(&mut line)?;
+    if line.trim().is_empty() {
+        return Err(anyhow!("empty Lampstand RPC response"));
+    }
+
+    let response: Value = serde_json::from_str(&line)?;
+    if response.get("ok") != Some(&Value::Bool(true)) {
+        let error = response
+            .get("error")
+            .and_then(|value| value.as_str())
+            .unwrap_or("rpc_error");
+        return Err(anyhow!(error.to_string()));
+    }
+    response
+        .get("result")
+        .cloned()
+        .ok_or_else(|| anyhow!("Lampstand response missing result"))
+}
+
+fn normalize_lampstand_root_hint(value: &Value) -> Value {
+    json!({
+        "source_root_id": value.get("source_root_id").cloned().unwrap_or(Value::Null),
+        "path_ref": value.get("path").cloned().unwrap_or(Value::Null),
+        "root_kind": value.get("root_kind").cloned().unwrap_or_else(|| json!("local_root")),
+        "freshness": value.get("freshness").cloned().unwrap_or(Value::Null),
+        "classification": value.get("classification").cloned().unwrap_or_else(|| json!("local_only")),
+        "handling_tags": value.get("handling_tags").cloned().unwrap_or_else(|| json!(["local-only"]))
+    })
+}
+
+fn default_lampstand_socket_path() -> PathBuf {
+    if let Ok(runtime_home) = std::env::var("SOCIOPROFIT_RUNTIME_HOME") {
+        return PathBuf::from(runtime_home).join(LAMPSTAND_SOCKET_NAME);
+    }
+    if let Ok(xdg_runtime_dir) = std::env::var("XDG_RUNTIME_DIR") {
+        return PathBuf::from(xdg_runtime_dir).join(LAMPSTAND_SOCKET_NAME);
+    }
+    PathBuf::from(format!("/run/user/{}/{}", unsafe { libc::geteuid() }, LAMPSTAND_SOCKET_NAME))
 }
 
 fn ensure_json(format: &str) -> Result<()> {
