@@ -1,6 +1,9 @@
 use assert_cmd::Command;
-use serde_json::Value;
+use serde_json::{json, Value};
 use std::fs;
+use std::io::{BufRead, BufReader, Write};
+use std::os::unix::net::UnixListener;
+use std::thread;
 use tempfile::tempdir;
 
 fn cargo_bin() -> Command {
@@ -137,20 +140,88 @@ fn lampstand_publish_is_dry_run_only_and_returns_records() {
 }
 
 #[test]
-fn lampstand_roots_returns_empty_stub_without_inventing_state() {
+fn lampstand_roots_unavailable_fails_closed() {
+    let socket_dir = tempdir().expect("socket dir");
+    let missing_socket = socket_dir.path().join("missing.sock");
+
     let output = cargo_bin()
-        .args(["lampstand-roots", "--format", "json"])
+        .args([
+            "lampstand-roots",
+            "--format",
+            "json",
+            "--socket",
+            missing_socket.to_str().unwrap(),
+        ])
+        .assert()
+        .code(2)
+        .get_output()
+        .stdout
+        .clone();
+
+    let value: Value = serde_json::from_slice(&output).expect("valid json");
+    assert_eq!(value["schema_version"], "sourceos.adapter_error.v1");
+    assert_eq!(value["error_code"], "lampstand_unavailable");
+    assert_eq!(value["safe_retry"], true);
+}
+
+#[test]
+fn lampstand_roots_consumes_unixjson_root_hints() {
+    let socket_dir = tempdir().expect("socket dir");
+    let socket = socket_dir.path().join("lampstand.sock");
+    let listener = UnixListener::bind(&socket).expect("bind fake lampstand socket");
+
+    let handle = thread::spawn(move || {
+        let (mut stream, _) = listener.accept().expect("accept fake root hints request");
+        let mut reader = BufReader::new(stream.try_clone().expect("clone stream"));
+        let mut request = String::new();
+        reader.read_line(&mut request).expect("read request");
+        let value: Value = serde_json::from_str(&request).expect("json request");
+        assert_eq!(value["method"], "RootHints");
+
+        let response = json!({
+            "ok": true,
+            "result": {
+                "adapter_mode": "rpc",
+                "roots": [
+                    {
+                        "source_root_id": "lampstand-root::sha256:abc",
+                        "path": "/tmp/example-root",
+                        "root_kind": "local_root",
+                        "freshness": null,
+                        "classification": "local_only",
+                        "handling_tags": ["local-only", "lampstand-root"]
+                    }
+                ]
+            }
+        });
+        stream.write_all(response.to_string().as_bytes()).expect("write response");
+        stream.write_all(b"\n").expect("write newline");
+    });
+
+    let output = cargo_bin()
+        .args([
+            "lampstand-roots",
+            "--format",
+            "json",
+            "--socket",
+            socket.to_str().unwrap(),
+        ])
         .assert()
         .success()
         .get_output()
         .stdout
         .clone();
 
+    handle.join().expect("fake lampstand server thread");
+
     let value: Value = serde_json::from_slice(&output).expect("valid json");
     assert_eq!(value["response_type"], "LampstandRootSet");
-    assert_eq!(value["data"]["schema_version"], "sourceos.lampstand_root_set.v1");
-    assert_eq!(value["data"]["adapter_mode"], "stub");
-    assert!(value["data"]["roots"].as_array().expect("roots array").is_empty());
+    assert_eq!(value["data"]["adapter_mode"], "rpc");
+    let roots = value["data"]["roots"].as_array().expect("roots array");
+    assert_eq!(roots.len(), 1);
+    assert_eq!(roots[0]["source_root_id"], "lampstand-root::sha256:abc");
+    assert_eq!(roots[0]["path_ref"], "/tmp/example-root");
+    assert_eq!(roots[0]["classification"], "local_only");
 }
 
 #[test]
