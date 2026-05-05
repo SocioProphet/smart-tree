@@ -2,9 +2,9 @@
 
 ## Status
 
-The SourceOS Smart Tree adapter has reached a stable read-only baseline.
+The SourceOS Smart Tree adapter has reached a stable read-only baseline and now consumes Lampstand-owned root hints over unixjson when a Lampstand daemon is available.
 
-It is safe to treat the current integration as done for the first phase once the final closeout PR is merged and CI is green.
+It remains safe to treat this integration as bounded and read-only: Lampstand owns local root discovery, and Smart Tree still applies `sourceos.repo_context.read_only` before any enrichment scan.
 
 ## What is Done
 
@@ -16,7 +16,7 @@ Implemented:
 sourceos-context snapshot <repo> --format json
 sourceos-context security <repo> --format json
 sourceos-context lampstand-publish <repo> --dry-run --format json
-sourceos-context lampstand-roots --format json
+sourceos-context lampstand-roots --format json [--socket <path>]
 ```
 
 ### Governance
@@ -50,7 +50,8 @@ Validation coverage:
 - Denied unbounded home-root snapshot.
 - Denied symlink-root snapshot.
 - Lampstand dry-run records.
-- Lampstand roots empty stub.
+- Lampstand unavailable failure path.
+- Lampstand `RootHints` unixjson success path.
 - Redacted security findings.
 
 ## What is Intentionally Not Done
@@ -58,7 +59,6 @@ Validation coverage:
 The following are explicitly deferred:
 
 - Real Lampstand RPC/unixjson write bridge.
-- Lampstand root discovery over live RPC.
 - Sherlock ingestion.
 - Memory Mesh promotion API integration.
 - Symbol extraction / SmartPastCode runtime integration.
@@ -75,17 +75,18 @@ The following are explicitly deferred:
 
 ## Why Those Deferrals Are Correct
 
-The first phase objective is not to connect every system. The objective is to establish a safe, bounded, validated contract.
+The adapter now has a live root-discovery consumer, but it still must not collapse platform boundaries.
 
-Lampstand must remain the local desktop indexing/search authority. Memory Mesh must remain the durable memory authority. Sherlock must remain the interpretation layer. Policy Fabric must remain the authorization layer. AgentPlane must remain the routing layer.
+Lampstand remains the local desktop indexing/search and root-discovery authority. Memory Mesh remains the durable memory authority. Sherlock remains the interpretation layer. Policy Fabric remains the authorization layer. AgentPlane remains the routing layer.
 
-The adapter should not collapse those boundaries.
+Root hints are discovery data only. They do not authorize Smart Tree scans.
 
 ## Current Architecture
 
 ```text
 sourceos-context
   -> read-only Smart Tree scanner/security primitives
+  -> Lampstand RootHints unixjson consumer
   -> SourceOS adapter envelope
   -> Policy profile trace
   -> Lampstand dry-run records
@@ -95,10 +96,11 @@ sourceos-context
 
 ## Stable Done Definition
 
-The first phase is done when:
+The current phase is done when:
 
+- Lampstand exposes `RootHints` and `lampstand roots`.
+- Smart Tree consumes `RootHints` over unixjson.
 - CI is green for schema examples, build, live-output validation, and smoke tests.
-- The final closeout PR is merged.
 - The adapter remains read-only.
 - The deferred lanes remain documented and gated.
 
@@ -128,16 +130,17 @@ Do not begin watch mode until the following exist:
 
 ## Final Readout After Merge
 
-Expected completion after final closeout merge:
+Expected completion after this merge:
 
 - Doctrine: 100%
-- Adapter contract: 95%
+- Adapter contract: 98%
+- Lampstand root-hints consumer: 90%
 - Lampstand dry-run bridge: 90%
 - Policy profile: 90%
 - Schema baseline: 95%
 - Agent Registry manifest: 70%
-- Runtime implementation: 60%
-- Tests: 75%
-- Validation: 80%
+- Runtime implementation: 68%
+- Tests: 82%
+- Validation: 85%
 
-This is enough to call the first phase done. It is not enough to call full cross-stack integration done.
+This is enough to call the root-discovery integration done. It is not enough to call full cross-stack integration done.
