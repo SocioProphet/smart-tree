@@ -90,6 +90,7 @@ def main() -> None:
         repo = make_repo(home)
         outside = Path(tempfile.mkdtemp())
         (outside / "README.md").write_text("# Outside\n", encoding="utf-8")
+        missing_socket = home / "runtime" / "missing-lampstand.sock"
 
         cases = [
             (
@@ -108,8 +109,18 @@ def main() -> None:
                 ),
             ),
             (
-                "lampstand-roots",
-                run_json(["lampstand-roots", "--format", "json"], home=home),
+                "lampstand-unavailable",
+                run_json(
+                    [
+                        "lampstand-roots",
+                        "--format",
+                        "json",
+                        "--socket",
+                        str(missing_socket),
+                    ],
+                    home=home,
+                    expect_code=2,
+                ),
             ),
             (
                 "policy-denied",
