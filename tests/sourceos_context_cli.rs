@@ -22,6 +22,7 @@ fn make_home_with_repo() -> (tempfile::TempDir, std::path::PathBuf) {
 }
 
 fn assert_policy_denied(output: Vec<u8>) {
+    // Every denied path must fail closed with the structured SourceOS adapter error envelope.
     let value: Value = serde_json::from_slice(&output).expect("valid json");
     assert_eq!(value["schema_version"], "sourceos.adapter_error.v1");
     assert_eq!(value["error_code"], "policy_denied");
