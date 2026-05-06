@@ -2,9 +2,9 @@
 
 ## Status
 
-The SourceOS Smart Tree adapter has reached a stable read-only baseline and now consumes Lampstand-owned root hints over unixjson when a Lampstand daemon is available.
+The SourceOS Smart Tree adapter has reached a stable bounded baseline. It now consumes Lampstand-owned root hints over unixjson and can explicitly publish governed adapter records into Lampstand's local adapter-record store.
 
-It remains safe to treat this integration as bounded and read-only: Lampstand owns local root discovery, and Smart Tree still applies `sourceos.repo_context.read_only` before any enrichment scan.
+This remains a controlled integration. Lampstand owns local root discovery and local search. Smart Tree still applies `sourceos.repo_context.read_only` before any enrichment scan. Adapter-record publication requires explicit `--publish`; default behavior remains dry-run.
 
 ## What is Done
 
@@ -15,7 +15,8 @@ Implemented:
 ```bash
 sourceos-context snapshot <repo> --format json
 sourceos-context security <repo> --format json
-sourceos-context lampstand-publish <repo> --dry-run --format json
+sourceos-context lampstand-publish <repo> --format json
+sourceos-context lampstand-publish <repo> --publish --socket <path> --format json
 sourceos-context lampstand-roots --format json [--socket <path>]
 ```
 
@@ -25,7 +26,8 @@ Implemented:
 
 - SourceOS/SocioProphet integration doctrine.
 - Lampstand-first local-state/search doctrine.
-- Read-only policy profile.
+- Read-only repo scan policy profile.
+- Explicit governed adapter-record publish path.
 - Agent Registry draft manifest.
 - Implementation roadmap.
 - Stable closeout target.
@@ -39,6 +41,7 @@ python tools/validate_sourceos_adapter_schema.py
 cargo build --bin sourceos-context
 python tools/validate_sourceos_adapter_live_outputs.py
 cargo test --test sourceos_context_cli -- --nocapture
+cargo test --test sourceos_context_lampstand_publish -- --nocapture
 ```
 
 Validation coverage:
@@ -52,13 +55,17 @@ Validation coverage:
 - Lampstand dry-run records.
 - Lampstand unavailable failure path.
 - Lampstand `RootHints` unixjson success path.
+- Lampstand `PublishAdapterRecords` unavailable failure path.
+- Lampstand `PublishAdapterRecords` unixjson success path.
 - Redacted security findings.
 
 ## What is Intentionally Not Done
 
 The following are explicitly deferred:
 
-- Real Lampstand RPC/unixjson write bridge.
+- Arbitrary Lampstand writes outside the governed adapter-record store.
+- Raw file-content publication into Lampstand.
+- Unreviewed adapter record types.
 - Sherlock ingestion.
 - Memory Mesh promotion API integration.
 - Symbol extraction / SmartPastCode runtime integration.
@@ -75,11 +82,11 @@ The following are explicitly deferred:
 
 ## Why Those Deferrals Are Correct
 
-The adapter now has a live root-discovery consumer, but it still must not collapse platform boundaries.
+The adapter now has a live root-discovery consumer and an explicit governed local-record publisher, but it still must not collapse platform boundaries.
 
-Lampstand remains the local desktop indexing/search and root-discovery authority. Memory Mesh remains the durable memory authority. Sherlock remains the interpretation layer. Policy Fabric remains the authorization layer. AgentPlane remains the routing layer.
+Lampstand remains the local desktop indexing/search, root-discovery, and local adapter-record authority. Memory Mesh remains the durable memory authority. Sherlock remains the interpretation layer. Policy Fabric remains the authorization layer. AgentPlane remains the routing layer.
 
-Root hints are discovery data only. They do not authorize Smart Tree scans.
+Root hints are discovery data only. They do not authorize Smart Tree scans. Adapter records are local search summaries/signals/candidates only. They do not become durable memory without Memory Mesh promotion.
 
 ## Current Architecture
 
@@ -87,6 +94,7 @@ Root hints are discovery data only. They do not authorize Smart Tree scans.
 sourceos-context
   -> read-only Smart Tree scanner/security primitives
   -> Lampstand RootHints unixjson consumer
+  -> Lampstand PublishAdapterRecords unixjson publisher
   -> SourceOS adapter envelope
   -> Policy profile trace
   -> Lampstand dry-run records
@@ -99,17 +107,19 @@ sourceos-context
 The current phase is done when:
 
 - Lampstand exposes `RootHints` and `lampstand roots`.
+- Lampstand exposes governed `PublishAdapterRecords` adapter-record ingestion.
 - Smart Tree consumes `RootHints` over unixjson.
-- CI is green for schema examples, build, live-output validation, and smoke tests.
-- The adapter remains read-only.
+- Smart Tree publishes generated governed records only when `--publish` is explicit.
+- CI is green for schema examples, build, live-output validation, smoke tests, and publish-path tests.
+- The adapter remains bounded and policy-gated.
 - The deferred lanes remain documented and gated.
 
 ## Next Phase Entry Criteria
 
-Do not begin a real Lampstand write bridge until the following exist:
+Do not begin arbitrary Lampstand writes until the following exist:
 
-- Confirmed Lampstand RPC/unixjson publish contract.
-- Idempotent record write behavior.
+- Expanded record-type registry.
+- Idempotent record behavior for each new record kind.
 - Local-only classification and redaction review.
 - Policy Fabric approval path.
 - Lampstand owner review.
@@ -134,13 +144,13 @@ Expected completion after this merge:
 
 - Doctrine: 100%
 - Adapter contract: 98%
-- Lampstand root-hints consumer: 90%
-- Lampstand dry-run bridge: 90%
+- Lampstand root-hints consumer: 95%
+- Lampstand governed record publisher: 85%
 - Policy profile: 90%
 - Schema baseline: 95%
 - Agent Registry manifest: 70%
-- Runtime implementation: 68%
-- Tests: 82%
-- Validation: 85%
+- Runtime implementation: 75%
+- Tests: 88%
+- Validation: 88%
 
-This is enough to call the root-discovery integration done. It is not enough to call full cross-stack integration done.
+This is enough to call the root-discovery and governed local-record publication integration done. It is not enough to call full cross-stack integration done.

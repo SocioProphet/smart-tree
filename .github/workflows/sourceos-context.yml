@@ -5,7 +5,9 @@ on:
     paths:
       - "src/bin/sourceos-context.rs"
       - "src/sourceos_context_adapter.rs"
+      - "src/sourceos_context_adapter_publish2.rs"
       - "tests/sourceos_context_cli.rs"
+      - "tests/sourceos_context_lampstand_publish.rs"
       - "schemas/sourceos-smart-tree-adapter.v1.schema.json"
       - "tools/validate_sourceos_adapter_schema.py"
       - "tools/validate_sourceos_adapter_live_outputs.py"
@@ -20,7 +22,9 @@ on:
     paths:
       - "src/bin/sourceos-context.rs"
       - "src/sourceos_context_adapter.rs"
+      - "src/sourceos_context_adapter_publish2.rs"
       - "tests/sourceos_context_cli.rs"
+      - "tests/sourceos_context_lampstand_publish.rs"
       - "schemas/sourceos-smart-tree-adapter.v1.schema.json"
       - "tools/validate_sourceos_adapter_schema.py"
       - "tools/validate_sourceos_adapter_live_outputs.py"
@@ -66,3 +70,6 @@ jobs:
 
       - name: Run adapter smoke tests
         run: cargo test --test sourceos_context_cli -- --nocapture
+
+      - name: Run Lampstand publish tests
+        run: cargo test --test sourceos_context_lampstand_publish -- --nocapture
